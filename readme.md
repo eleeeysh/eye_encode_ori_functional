@@ -1,6 +1,4 @@
-## A few things to change before starting migrating to lab computer
-- reload the 'connectEL' routine
-- set eyetrack variable to True
-- set the number of trials each block to 10
-- remove all redundant data
-- remove all debug loops (general instruction, practice, real trial)
+## Whether the codes serve a functional role
+- gaze: perturbed by saccades to a specific location that corresponds to a non-target orientation
+- hand: perturbed by hand movements along non-target orientations
+
