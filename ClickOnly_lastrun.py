@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 This experiment was created using PsychoPy3 Experiment Builder (v2025.1.1),
-    on Mon Aug 18 11:59:20 2025
+    on Mon Aug 18 18:19:05 2025
 If you publish work using this script the most relevant publication is:
 
     Peirce J, Gray JR, Simpson S, MacAskill M, Höchenberger R, Sogo H, Kastman E, Lindeløv JK. (2019) 
@@ -81,12 +81,16 @@ class SimplePerturbationLoader:
 
 """ For generating perturbations """
 class PerturbationManager:
-    def __init__(self):
-        self.perturb_scale_range = [0.1, 0.4]
-        self.implicit_perturb_settings = {
-            'radius': 0.05,
-            'color': 'white',
-        }
+    def __init__(self, win):
+        self.perturb_scale_range = [0.1, 0.25]
+        self.radius = 0.05
+        
+        # load resources
+        self.img = visual.ImageStim(
+            win, image='resources/landolt_white.png', 
+            pos=(0, 0),
+            ori=0,
+            size=(self.radius, self.radius))
         
     def generate_perturb_position(self, perturb_code):
         perturb_center = np.random.uniform(
@@ -97,23 +101,90 @@ class PerturbationManager:
         return perturb_center
         
     def generate_gradient_mask(self, win, perturb_code):
-        settings = self.implicit_perturb_settings
+        ## position
         center = self.generate_perturb_position(perturb_code)
+        self.img.pos = center
+        ## rotation
+        rotation = np.random.randint(360)
+        self.img.ori = rotation
         
         perturb_info = {
             'pos': center,
-            'radius': settings['radius'],
+            'radius': self.radius,
+            'ori': rotation,
         }
         
-        mask = visual.Circle(
-            win,
-            fillColor=settings['color'], # fill color
-            lineColor=settings['color'], # border color (same as fill here)
-            edges=128, # smoother circle (default is 128)
-            **perturb_info
+        return self.img, perturb_info
+        
+# Run 'Before Experiment' code from codeDelay
+class TimepointSchedueler:
+    def __init__(self, timing_settings, delay_length):
+        self.n_min, self.n_max = timing_settings['n']
+        self.per_t_min, self.per_t_max = timing_settings['duration']
+        self.earliest, self.latest = timing_settings['timing']
+        self.min_gap = timing_settings['min_gap']
+        self.delay_length = delay_length
+        
+        # check settings
+        assert delay_length >= self.latest
+        assert (
+            self.n_max * self.per_t_max + 
+            (self.n_max-1) * self.min_gap +
+            self.earliest) <= self.latest
+        
+        # reset schedule
+        self.schedule = None
+        self.current_id = -1
+        self.on = False
+        
+    def reset_schedule(self):
+        self.schedule = []
+        
+        # sample number of epochs
+        n_epochs = np.random.choice(
+            np.arange(self.n_min, self.n_max+1)
         )
-
-        return mask, perturb_info
+        # determine duration of each epochs
+        durations = np.random.uniform(
+            self.per_t_min, self.per_t_max, size=n_epochs
+        )
+        
+        # sample the start points
+        reduced_duration = self.latest - self.earliest - np.sum(
+            durations) - (n_epochs) * self.min_gap
+        starts = np.random.uniform(0, reduced_duration, size=n_epochs)
+        starts = np.sort(starts)
+        
+        # get time start end for each
+        t_overhead = self.earliest
+        for i in range(n_epochs):
+            start_t = t_overhead + starts[i]
+            end_t = start_t + durations[i]
+            self.schedule.append([start_t, end_t])
+            t_overhead += self.min_gap 
+            t_overhead += end_t - start_t
+            
+        # other stuffs
+        self.on = False
+        self.current_id = 0
+        
+    def check_schedule(self, t):
+        # check whether it's on or off
+        n_total = len(self.schedule)
+        if self.current_id < n_total:
+            epoch = self.schedule[self.current_id]
+            if t < epoch[0]:
+                self.on = False
+            elif t > epoch[1]:
+                self.on = False
+                self.current_id += 1
+            else:
+                self.on = True
+        else:
+            self.on = False
+        
+        return self.on
+                
 # --- Setup global variables (available in all functions) ---
 # create a device manager to handle hardware (keyboards, mice, mirophones, speakers, etc.)
 deviceManager = hardware.DeviceManager()
@@ -129,6 +200,7 @@ runAtExit = []
 expInfo = {
     'participant': f"{randint(0, 999999):06.0f}",
     'session': '001',
+    'dominant_hand': ['right','left'],
     'date|hid': data.getDateStr(),
     'expName|hid': expName,
     'expVersion|hid': expVersion,
@@ -462,13 +534,18 @@ def run(expInfo, thisExp, win, globalClock=None, thisSession=None):
     # --- Initialize components for Routine "prepareExp" ---
     # Run 'Begin Experiment' code from codePrepareExp
     # set configrations
-    
     N_REPEATS = 4
     N_REPEAT_BLOCK = 2
-    stim_perturb_loader = SimplePerturbationLoader()
-    perturbation_manager = PerturbationManager()
+    DELAY_LENGTH = 5
     
-    # logging.console.setLevel(logging.DEBUG)
+    # read exp settings
+    dominant_hand = expInfo['dominant_hand']
+    is_right_handed = dominant_hand == 'right'
+    
+    # add managers
+    stim_perturb_loader = SimplePerturbationLoader()
+    perturbation_manager = PerturbationManager(win)
+    
     
     # --- Initialize components for Routine "PreBlock" ---
     
@@ -477,7 +554,26 @@ def run(expInfo, thisExp, win, globalClock=None, thisSession=None):
     # --- Initialize components for Routine "Display" ---
     
     # --- Initialize components for Routine "Delay" ---
-    textbox = visual.TextBox2(
+    # Run 'Begin Experiment' code from codeDelay
+    # a few configurations
+    ## number of perturbations during the delay
+    PERTURB_TIMING_SETTINGS = {
+        'n': (2, 2),
+        'duration': (1.0, 1.5),
+        'timing': (0.5, 4.5),
+        'min_gap': 0.05,
+    }
+    perturb_scheduler = TimepointSchedueler(
+        timing_settings=PERTURB_TIMING_SETTINGS, 
+        delay_length=DELAY_LENGTH,
+    )
+    
+    ## left / right hand mapping
+    left_hand_keys = []
+    right_hand_keys = []
+    assert len(left_hand_keys) == len(right_hand_keys)
+    resp_key_map = right_hand_keys if is_right_handed else left_hand_keys
+    textDelayPlaceholder = visual.TextBox2(
          win, text=None, placeholder='Type here...', font='Arial',
          ori=0.0, pos=(0, 0), draggable=False,      letterHeight=0.05,
          size=(0.5, 0.5), borderWidth=2.0,
@@ -490,7 +586,7 @@ def run(expInfo, thisExp, win, globalClock=None, thisSession=None):
          fillColor=None, borderColor=None,
          flipHoriz=False, flipVert=False, languageStyle='LTR',
          editable=False,
-         name='textbox',
+         name='textDelayPlaceholder',
          depth=-1, autoLog=True,
     )
     
@@ -537,7 +633,6 @@ def run(expInfo, thisExp, win, globalClock=None, thisSession=None):
     # update component parameters for each repeat
     # Run 'Begin Routine' code from codePrepareExp
     # now generate the stimuli and perturbations
-    
     all_repats_stims = []
     BLOCK_SIZE = 0
     for _ in range(N_REPEATS):
@@ -982,19 +1077,22 @@ def run(expInfo, thisExp, win, globalClock=None, thisSession=None):
                 # create an object to store info about Routine Delay
                 Delay = data.Routine(
                     name='Delay',
-                    components=[textbox],
+                    components=[textDelayPlaceholder],
                 )
                 Delay.status = NOT_STARTED
                 continueRoutine = True
                 # update component parameters for each repeat
                 # Run 'Begin Routine' code from codeDelay
-                stim_degree = cur_block_stim_perturbs[cur_trial_i][0]
+                # set up the timing of displaying perturbations
+                cur_perturb_obj = None
+                state_on = False
+                perturb_scheduler.reset_schedule()
+                
+                # get stim perturb codes
                 perturb_code = cur_block_stim_perturbs[cur_trial_i][1]
+                perturb_mask = None
                 
-                perturb_mask, perturb_info = perturbation_manager.generate_gradient_mask(win, perturb_code)
-                print(f'Perturb: {perturb_info}')
-                
-                textbox.reset()
+                textDelayPlaceholder.reset()
                 # store start times for Delay
                 Delay.tStartRefresh = win.getFutureFlipTime(clock=globalClock)
                 Delay.tStart = globalClock.getTime(format='float')
@@ -1017,7 +1115,7 @@ def run(expInfo, thisExp, win, globalClock=None, thisSession=None):
                 
                 # --- Run Routine "Delay" ---
                 Delay.forceEnded = routineForceEnded = not continueRoutine
-                while continueRoutine and routineTimer.getTime() < 5.0:
+                while continueRoutine:
                     # if trial has changed, end Routine now
                     if hasattr(thisTrialLoop, 'status') and thisTrialLoop.status == STOPPING:
                         continueRoutine = False
@@ -1028,41 +1126,54 @@ def run(expInfo, thisExp, win, globalClock=None, thisSession=None):
                     frameN = frameN + 1  # number of completed frames (so 0 is the first frame)
                     # update/draw components on each frame
                     # Run 'Each Frame' code from codeDelay
-                    perturb_mask.draw()
+                    # check time first
+                    new_state = perturb_scheduler.check_schedule(t)
+                    if new_state:
+                        if not state_on:
+                            # create a new object
+                            perturb_mask, perturb_info = perturbation_manager.generate_gradient_mask(
+                                win, perturb_code)
+                        perturb_mask.draw()
+                    else:
+                        # destroy perturb mask
+                        perturb_mask = None
+                    state_on = new_state
                     
-                    # *textbox* updates
                     
-                    # if textbox is starting this frame...
-                    if textbox.status == NOT_STARTED and tThisFlip >= 0.0-frameTolerance:
+                    
+                    # *textDelayPlaceholder* updates
+                    
+                    # if textDelayPlaceholder is starting this frame...
+                    if textDelayPlaceholder.status == NOT_STARTED and tThisFlip >= 0.0-frameTolerance:
                         # keep track of start time/frame for later
-                        textbox.frameNStart = frameN  # exact frame index
-                        textbox.tStart = t  # local t and not account for scr refresh
-                        textbox.tStartRefresh = tThisFlipGlobal  # on global time
-                        win.timeOnFlip(textbox, 'tStartRefresh')  # time at next scr refresh
+                        textDelayPlaceholder.frameNStart = frameN  # exact frame index
+                        textDelayPlaceholder.tStart = t  # local t and not account for scr refresh
+                        textDelayPlaceholder.tStartRefresh = tThisFlipGlobal  # on global time
+                        win.timeOnFlip(textDelayPlaceholder, 'tStartRefresh')  # time at next scr refresh
                         # add timestamp to datafile
-                        thisExp.timestampOnFlip(win, 'textbox.started')
+                        thisExp.timestampOnFlip(win, 'textDelayPlaceholder.started')
                         # update status
-                        textbox.status = STARTED
-                        textbox.setAutoDraw(True)
+                        textDelayPlaceholder.status = STARTED
+                        textDelayPlaceholder.setAutoDraw(True)
                     
-                    # if textbox is active this frame...
-                    if textbox.status == STARTED:
+                    # if textDelayPlaceholder is active this frame...
+                    if textDelayPlaceholder.status == STARTED:
                         # update params
                         pass
                     
-                    # if textbox is stopping this frame...
-                    if textbox.status == STARTED:
+                    # if textDelayPlaceholder is stopping this frame...
+                    if textDelayPlaceholder.status == STARTED:
                         # is it time to stop? (based on global clock, using actual start)
-                        if tThisFlipGlobal > textbox.tStartRefresh + 5.0-frameTolerance:
+                        if tThisFlipGlobal > textDelayPlaceholder.tStartRefresh + DELAY_LENGTH -frameTolerance:
                             # keep track of stop time/frame for later
-                            textbox.tStop = t  # not accounting for scr refresh
-                            textbox.tStopRefresh = tThisFlipGlobal  # on global time
-                            textbox.frameNStop = frameN  # exact frame index
+                            textDelayPlaceholder.tStop = t  # not accounting for scr refresh
+                            textDelayPlaceholder.tStopRefresh = tThisFlipGlobal  # on global time
+                            textDelayPlaceholder.frameNStop = frameN  # exact frame index
                             # add timestamp to datafile
-                            thisExp.timestampOnFlip(win, 'textbox.stopped')
+                            thisExp.timestampOnFlip(win, 'textDelayPlaceholder.stopped')
                             # update status
-                            textbox.status = FINISHED
-                            textbox.setAutoDraw(False)
+                            textDelayPlaceholder.status = FINISHED
+                            textDelayPlaceholder.setAutoDraw(False)
                     
                     # check for quit (typically the Esc key)
                     if defaultKeyboard.getKeys(keyList=["escape"]):
@@ -1103,13 +1214,8 @@ def run(expInfo, thisExp, win, globalClock=None, thisSession=None):
                 Delay.tStop = globalClock.getTime(format='float')
                 Delay.tStopRefresh = tThisFlipGlobal
                 thisExp.addData('Delay.stopped', Delay.tStop)
-                # using non-slip timing so subtract the expected duration of this Routine (unless ended on request)
-                if Delay.maxDurationReached:
-                    routineTimer.addTime(-Delay.maxDuration)
-                elif Delay.forceEnded:
-                    routineTimer.reset()
-                else:
-                    routineTimer.addTime(-5.000000)
+                # the Routine "Delay" was not non-slip safe, so reset the non-slip timer
+                routineTimer.reset()
                 
                 # --- Prepare to start Routine "OriTest" ---
                 # create an object to store info about Routine OriTest
