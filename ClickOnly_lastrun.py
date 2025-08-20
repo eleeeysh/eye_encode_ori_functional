@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 This experiment was created using PsychoPy3 Experiment Builder (v2025.1.1),
-    on Mon Aug 18 18:19:05 2025
+    on Tue Aug 19 17:38:23 2025
 If you publish work using this script the most relevant publication is:
 
     Peirce J, Gray JR, Simpson S, MacAskill M, Höchenberger R, Sogo H, Kastman E, Lindeløv JK. (2019) 
@@ -79,6 +79,7 @@ class SimplePerturbationLoader:
         return combinations
         
 
+# Run 'Before Experiment' code from codeDelay
 """ For generating perturbations """
 class PerturbationManager:
     def __init__(self, win):
@@ -105,7 +106,7 @@ class PerturbationManager:
         center = self.generate_perturb_position(perturb_code)
         self.img.pos = center
         ## rotation
-        rotation = np.random.randint(360)
+        rotation = np.random.randint(10, 170) * (np.random.randint(2)+1) # avoid ambiguous
         self.img.ori = rotation
         
         perturb_info = {
@@ -115,8 +116,8 @@ class PerturbationManager:
         }
         
         return self.img, perturb_info
-        
-# Run 'Before Experiment' code from codeDelay
+
+
 class TimepointSchedueler:
     def __init__(self, timing_settings, delay_length):
         self.n_min, self.n_max = timing_settings['n']
@@ -424,6 +425,12 @@ def setupDevices(expInfo, thisExp, win):
         deviceManager.addDevice(
             deviceClass='keyboard', deviceName='defaultKeyboard', backend='iohub'
         )
+    if deviceManager.getDevice('keyDelay') is None:
+        # initialise keyDelay
+        keyDelay = deviceManager.addDevice(
+            deviceClass='keyboard',
+            deviceName='keyDelay',
+        )
     # return True if completed successfully
     return True
 
@@ -544,7 +551,7 @@ def run(expInfo, thisExp, win, globalClock=None, thisSession=None):
     
     # add managers
     stim_perturb_loader = SimplePerturbationLoader()
-    perturbation_manager = PerturbationManager(win)
+    
     
     
     # --- Initialize components for Routine "PreBlock" ---
@@ -554,8 +561,11 @@ def run(expInfo, thisExp, win, globalClock=None, thisSession=None):
     # --- Initialize components for Routine "Display" ---
     
     # --- Initialize components for Routine "Delay" ---
+    keyDelay = keyboard.Keyboard(deviceName='keyDelay')
     # Run 'Begin Experiment' code from codeDelay
     # a few configurations
+    perturbation_manager = PerturbationManager(win)
+    
     ## number of perturbations during the delay
     PERTURB_TIMING_SETTINGS = {
         'n': (2, 2),
@@ -569,10 +579,15 @@ def run(expInfo, thisExp, win, globalClock=None, thisSession=None):
     )
     
     ## left / right hand mapping
-    left_hand_keys = []
-    right_hand_keys = []
+    left_hand_keys = ['j', 'k'] # for left-handed
+    right_hand_keys = ['a', 's'] # for right-handed
     assert len(left_hand_keys) == len(right_hand_keys)
     resp_key_map = right_hand_keys if is_right_handed else left_hand_keys
+    
+    ## load sound feedback
+    correct_sound = sound.Sound('bleep.wav')
+    wrong_sound   = sound.Sound('buzz.wav')
+    
     textDelayPlaceholder = visual.TextBox2(
          win, text=None, placeholder='Type here...', font='Arial',
          ori=0.0, pos=(0, 0), draggable=False,      letterHeight=0.05,
@@ -587,7 +602,7 @@ def run(expInfo, thisExp, win, globalClock=None, thisSession=None):
          flipHoriz=False, flipVert=False, languageStyle='LTR',
          editable=False,
          name='textDelayPlaceholder',
-         depth=-1, autoLog=True,
+         depth=-2, autoLog=True,
     )
     
     # --- Initialize components for Routine "OriTest" ---
@@ -1077,11 +1092,15 @@ def run(expInfo, thisExp, win, globalClock=None, thisSession=None):
                 # create an object to store info about Routine Delay
                 Delay = data.Routine(
                     name='Delay',
-                    components=[textDelayPlaceholder],
+                    components=[keyDelay, textDelayPlaceholder],
                 )
                 Delay.status = NOT_STARTED
                 continueRoutine = True
                 # update component parameters for each repeat
+                # create starting attributes for keyDelay
+                keyDelay.keys = []
+                keyDelay.rt = []
+                _keyDelay_allKeys = []
                 # Run 'Begin Routine' code from codeDelay
                 # set up the timing of displaying perturbations
                 cur_perturb_obj = None
@@ -1091,6 +1110,7 @@ def run(expInfo, thisExp, win, globalClock=None, thisSession=None):
                 # get stim perturb codes
                 perturb_code = cur_block_stim_perturbs[cur_trial_i][1]
                 perturb_mask = None
+                ans_key = None
                 
                 textDelayPlaceholder.reset()
                 # store start times for Delay
@@ -1125,6 +1145,42 @@ def run(expInfo, thisExp, win, globalClock=None, thisSession=None):
                     tThisFlipGlobal = win.getFutureFlipTime(clock=None)
                     frameN = frameN + 1  # number of completed frames (so 0 is the first frame)
                     # update/draw components on each frame
+                    
+                    # *keyDelay* updates
+                    waitOnFlip = False
+                    
+                    # if keyDelay is starting this frame...
+                    if keyDelay.status == NOT_STARTED and tThisFlip >= 0.0-frameTolerance:
+                        # keep track of start time/frame for later
+                        keyDelay.frameNStart = frameN  # exact frame index
+                        keyDelay.tStart = t  # local t and not account for scr refresh
+                        keyDelay.tStartRefresh = tThisFlipGlobal  # on global time
+                        win.timeOnFlip(keyDelay, 'tStartRefresh')  # time at next scr refresh
+                        # update status
+                        keyDelay.status = STARTED
+                        # keyboard checking is just starting
+                        waitOnFlip = True
+                        win.callOnFlip(keyDelay.clock.reset)  # t=0 on next screen flip
+                        win.callOnFlip(keyDelay.clearEvents, eventType='keyboard')  # clear events on next screen flip
+                    
+                    # if keyDelay is stopping this frame...
+                    if keyDelay.status == STARTED:
+                        # is it time to stop? (based on global clock, using actual start)
+                        if tThisFlipGlobal > keyDelay.tStartRefresh + DELAY_LENGTH-frameTolerance:
+                            # keep track of stop time/frame for later
+                            keyDelay.tStop = t  # not accounting for scr refresh
+                            keyDelay.tStopRefresh = tThisFlipGlobal  # on global time
+                            keyDelay.frameNStop = frameN  # exact frame index
+                            # update status
+                            keyDelay.status = FINISHED
+                            keyDelay.status = FINISHED
+                    if keyDelay.status == STARTED and not waitOnFlip:
+                        theseKeys = keyDelay.getKeys(keyList=None, ignoreKeys=["escape"], waitRelease=False)
+                        _keyDelay_allKeys.extend(theseKeys)
+                        if len(_keyDelay_allKeys):
+                            keyDelay.keys = _keyDelay_allKeys[-1].name  # just the last key pressed
+                            keyDelay.rt = _keyDelay_allKeys[-1].rt
+                            keyDelay.duration = _keyDelay_allKeys[-1].duration
                     # Run 'Each Frame' code from codeDelay
                     # check time first
                     new_state = perturb_scheduler.check_schedule(t)
@@ -1133,13 +1189,33 @@ def run(expInfo, thisExp, win, globalClock=None, thisSession=None):
                             # create a new object
                             perturb_mask, perturb_info = perturbation_manager.generate_gradient_mask(
                                 win, perturb_code)
+                            # TODO: save the info
+                            ans_is_left = perturb_info['ori'] > 180
                         perturb_mask.draw()
                     else:
                         # destroy perturb mask
                         perturb_mask = None
                     state_on = new_state
                     
-                    
+                    # read the keyboard input
+                    keys = keyDelay.getKeys(resp_key_map)
+                    if state_on and keys:
+                        # stop sounds
+                        correct_sound.stop()
+                        wrong_sound.stop()
+                        
+                        # check the key
+                        last_key = keys[-1].name
+                        key_is_left = last_key.lower() == resp_key_map[0]
+                        key_is_correct = key_is_left == ans_is_left
+                        if key_is_correct:
+                            correct_sound.play()
+                        else:
+                            wrong_sound.play()
+                        
+                        # save the result
+                        cur_perturb_id = perturb_scheduler.current_id
+                        thisExp.addData(f'perturb_{cur_perturb_id}_correct', int(key_is_correct))
                     
                     # *textDelayPlaceholder* updates
                     
@@ -1214,6 +1290,13 @@ def run(expInfo, thisExp, win, globalClock=None, thisSession=None):
                 Delay.tStop = globalClock.getTime(format='float')
                 Delay.tStopRefresh = tThisFlipGlobal
                 thisExp.addData('Delay.stopped', Delay.tStop)
+                # check responses
+                if keyDelay.keys in ['', [], None]:  # No response was made
+                    keyDelay.keys = None
+                trialLoop.addData('keyDelay.keys',keyDelay.keys)
+                if keyDelay.keys != None:  # we had a response
+                    trialLoop.addData('keyDelay.rt', keyDelay.rt)
+                    trialLoop.addData('keyDelay.duration', keyDelay.duration)
                 # the Routine "Delay" was not non-slip safe, so reset the non-slip timer
                 routineTimer.reset()
                 
