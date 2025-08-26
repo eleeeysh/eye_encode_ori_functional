@@ -96,9 +96,9 @@
         <Param val="False" valType="bool" updates="None" name="useWindowParams"/>
       </RoutineSettingsComponent>
       <CodeComponent name="codePrepareExp" plugin="None">
-        <Param val="import random&amp;#10;import numpy as np&amp;#10;import itertools&amp;#10;&amp;#10;&quot;&quot;&quot; For sampling &quot;&quot;&quot;&amp;#10;class SimplePerturbationLoader:&amp;#10;    def __init__(self):&amp;#10;        # create stimulus samples&amp;#10;        self.stim_ranges = [&amp;#10;            [12, 36],&amp;#10;            [54, 78],&amp;#10;            [102, 126],&amp;#10;            [144, 168],&amp;#10;        ]&amp;#10;        self.n_sample_per_range = 5&amp;#10;        self.stim_samples = [&amp;#10;            np.linspace(s[0], s[1], self.n_sample_per_range) &amp;#10;            for s in self.stim_ranges]&amp;#10;        &amp;#10;        # create perturbation sampling range&amp;#10;        self.perturbations = [&amp;#10;            (1, 1), # quadrant 1&amp;#10;            (-1, 1), # quadrant 2&amp;#10;            (-1, -1), # quadrant 3&amp;#10;            (1, -1), # quadrant 4&amp;#10;        ]&amp;#10;        &amp;#10;        # set other configurations&amp;#10;        self.jittering = 2&amp;#10;        &amp;#10;    def stim_add_noise(self, xs):&amp;#10;        noise = np.random.uniform(low=-1, high=1, size=xs.shape) * self.jittering&amp;#10;        return xs + noise&amp;#10;        &amp;#10;    def generate_one_batch_stims(self):&amp;#10;        stim_list = np.concatenate(self.stim_samples)&amp;#10;        # add some noise&amp;#10;        sampled_stims = self.stim_add_noise(stim_list)&amp;#10;        # combination&amp;#10;        combinations = list(itertools.product(sampled_stims, self.perturbations))&amp;#10;        random.shuffle(combinations)&amp;#10;        return combinations&amp;#10;        &amp;#10;&quot;&quot;&quot; For calibration &quot;&quot;&quot;&amp;#10;class DefaultFixation:&amp;#10;    def __init__(self, window):&amp;#10;        self.fixation = visual.ShapeStim(&amp;#10;            win=window, vertices='cross',&amp;#10;            size=(0.06, 0.06), lineWidth=1,&amp;#10;            lineColor='white', fillColor='white')&amp;#10;&amp;#10;    def draw(self):&amp;#10;        self.fixation.draw()&amp;#10;" valType="extendedCode" updates="constant" name="Before Experiment"/>
+        <Param val="import random&amp;#10;import numpy as np&amp;#10;import itertools&amp;#10;import math&amp;#10;&amp;#10;&quot;&quot;&quot; For sampling &quot;&quot;&quot;&amp;#10;class SimplePerturbationLoader:&amp;#10;    def __init__(self):&amp;#10;        # create stimulus samples&amp;#10;        self.stim_ranges = [&amp;#10;            [12, 36],&amp;#10;            [54, 78],&amp;#10;            [102, 126],&amp;#10;            [144, 168],&amp;#10;        ]&amp;#10;        self.n_sample_per_range = 5&amp;#10;        self.stim_samples = [&amp;#10;            np.linspace(s[0], s[1], self.n_sample_per_range) &amp;#10;            for s in self.stim_ranges]&amp;#10;        &amp;#10;        # create perturbation sampling range&amp;#10;        self.perturbations = [&amp;#10;            (1, 1), # quadrant 1&amp;#10;            (-1, 1), # quadrant 2&amp;#10;            (-1, -1), # quadrant 3&amp;#10;            (1, -1), # quadrant 4&amp;#10;        ]&amp;#10;        &amp;#10;        # set other configurations&amp;#10;        self.jittering = 2&amp;#10;        &amp;#10;    def stim_add_noise(self, xs):&amp;#10;        noise = np.random.uniform(low=-1, high=1, size=xs.shape) * self.jittering&amp;#10;        return xs + noise&amp;#10;        &amp;#10;    def generate_one_batch_stims(self):&amp;#10;        stim_list = np.concatenate(self.stim_samples)&amp;#10;        # add some noise&amp;#10;        sampled_stims = self.stim_add_noise(stim_list)&amp;#10;        # combination&amp;#10;        combinations = list(itertools.product(sampled_stims, self.perturbations))&amp;#10;        random.shuffle(combinations)&amp;#10;        return combinations&amp;#10;        &amp;#10;&quot;&quot;&quot; For calibration &quot;&quot;&quot;&amp;#10;class DefaultFixation:&amp;#10;    def __init__(self, window):&amp;#10;        self.fixation = visual.ShapeStim(&amp;#10;            win=window, vertices='cross',&amp;#10;            size=(0.06, 0.06), lineWidth=1,&amp;#10;            lineColor='white', fillColor='white')&amp;#10;&amp;#10;    def draw(self):&amp;#10;        self.fixation.draw()&amp;#10;" valType="extendedCode" updates="constant" name="Before Experiment"/>
         <Param val="" valType="extendedCode" updates="constant" name="Before JS Experiment"/>
-        <Param val="# set configrations&amp;#10;N_REPEATS = 4&amp;#10;N_REPEAT_BLOCK = 40 # FOR DEBUGGING, 4 will be decent?&amp;#10;FIXATION_LENGTH = 1&amp;#10;STIM_LENGTH = 0.75&amp;#10;MASK_LENGTH = 0.5&amp;#10;DELAY_LENGTH = 5&amp;#10;&amp;#10;# read exp settings&amp;#10;dominant_hand = expInfo['dominant_hand']&amp;#10;is_right_handed = dominant_hand == 'right'&amp;#10;&amp;#10;# add managers&amp;#10;stim_perturb_loader = SimplePerturbationLoader()&amp;#10;&amp;#10;# some configuration for display&amp;#10;PATCH_RADIUS = 0.16&amp;#10;&amp;#10;" valType="extendedCode" updates="constant" name="Begin Experiment"/>
+        <Param val="# set configrations&amp;#10;N_REPEATS = 4&amp;#10;N_REPEAT_BLOCK = 40 # FOR DEBUGGING, 4 will be decent?&amp;#10;FIXATION_LENGTH = 1&amp;#10;STIM_LENGTH = 0.75&amp;#10;MASK_LENGTH = 0.5&amp;#10;DELAY_LENGTH = 5&amp;#10;enforce_response_time_limit = True&amp;#10;MAX_RESP_TIME = 20&amp;#10;&amp;#10;# read exp settings&amp;#10;dominant_hand = expInfo['dominant_hand']&amp;#10;is_right_handed = dominant_hand == 'right'&amp;#10;&amp;#10;# add managers&amp;#10;stim_perturb_loader = SimplePerturbationLoader()&amp;#10;&amp;#10;# some configuration for display&amp;#10;PATCH_RADIUS = 0.16&amp;#10;&amp;#10;" valType="extendedCode" updates="constant" name="Begin Experiment"/>
         <Param val="" valType="extendedCode" updates="constant" name="Begin JS Experiment"/>
         <Param val="" valType="extendedCode" updates="constant" name="Begin JS Routine"/>
         <Param val="# now generate the stimuli and perturbations&amp;#10;all_repeats_stims = []&amp;#10;BLOCK_SIZE = 0&amp;#10;for _ in range(N_REPEATS):&amp;#10;    # generate stims and perturbations&amp;#10;    stim_perturb_list = stim_perturb_loader.generate_one_batch_stims()&amp;#10;    # cut into blocks&amp;#10;    assert len(stim_perturb_list) % N_REPEAT_BLOCK == 0&amp;#10;    BLOCK_SIZE = len(stim_perturb_list) // N_REPEAT_BLOCK&amp;#10;    for i in range(N_REPEAT_BLOCK):&amp;#10;        all_repeats_stims.append(stim_perturb_list[i*BLOCK_SIZE:(i+1)*BLOCK_SIZE])&amp;#10;&amp;#10;N_BLOCKS = len(all_repeats_stims)&amp;#10;&amp;#10;# also determine the type of perturbation (overt vs covert)&amp;#10;PERTURB_TYPE_CANDIDATES = ['overt', 'covert']&amp;#10;N_PERTURB_TYPES = len(PERTURB_TYPE_CANDIDATES)&amp;#10;all_perturb_types = (PERTURB_TYPE_CANDIDATES * &amp;#10;    ((N_BLOCKS + N_PERTURB_TYPES - 1) // N_PERTURB_TYPES))[:N_BLOCKS]&amp;#10;&amp;#10;logging.info(N_BLOCKS)&amp;#10;&amp;#10;        &amp;#10;&amp;#10;" valType="extendedCode" updates="constant" name="Begin Routine"/>
@@ -240,7 +240,7 @@
         <Param val="" valType="extendedCode" updates="constant" name="End Experiment"/>
         <Param val="" valType="extendedCode" updates="constant" name="End JS Experiment"/>
         <Param val="" valType="extendedCode" updates="constant" name="End JS Routine"/>
-        <Param val="# save all records&amp;#10;for record_type in ['judge', 'perturb']:&amp;#10;    records = perturb_scheduler.records[record_type]&amp;#10;    for i, record in enumerate(records):&amp;#10;        for k,v in record.items():&amp;#10;            thisExp.addData(f&quot;{record_type}_{i}_{k}&quot;, v)&amp;#10;" valType="extendedCode" updates="constant" name="End Routine"/>
+        <Param val="# save all records&amp;#10;for record_type in ['judge', 'perturb']:&amp;#10;    records = perturb_scheduler.records[record_type]&amp;#10;    for i, record in enumerate(records):&amp;#10;        for k,v in record.items():&amp;#10;            thisExp.addData(f&quot;{record_type}_{i}_{k}&quot;, v)&amp;#10;&amp;#10;# also compute the accuracy&amp;#10;perturb_acc = np.mean(&amp;#10;    [s.get('ans_correct', False) for s in perturb_scheduler.records['judge']])&amp;#10;block_perturb_acc_records.append(perturb_acc)" valType="extendedCode" updates="constant" name="End Routine"/>
         <Param val="False" valType="bool" updates="None" name="disabled"/>
         <Param val="codeDelay" valType="code" updates="None" name="name"/>
       </CodeComponent>
@@ -304,6 +304,43 @@
         <Param val="" valType="code" updates="constant" name="stopVal"/>
         <Param val="False" valType="bool" updates="None" name="useWindowParams"/>
       </RoutineSettingsComponent>
+      <CodeComponent name="codeOriTest" plugin="None">
+        <Param val="# define the function to make report&amp;#10;# define the function to process mouse response&amp;#10;CLICK_RADIUS = 0.01&amp;#10;CLICK_REGION_FACTOR = 3&amp;#10;button_width = 0.1&amp;#10;button_height = 0.05&amp;#10;&amp;#10;def funcComputeOriDiff(s1, s2):&amp;#10;    diff = np.abs(s1 - s2) &amp;#10;    diff = np.min([diff, 180-diff])&amp;#10;    return diff&amp;#10;&amp;#10;class WheelClickRegister:&amp;#10;    def __init__(self, wheel, pos_point, opp_point, wheel_pos):&amp;#10;        self.wheel = wheel&amp;#10;        self.wheel_c = wheel_pos[0]&amp;#10;        self.wheel_r = wheel_pos[1]&amp;#10;        self.click_radius = wheel_pos[2]&amp;#10;        self.point_click_selected = pos_point&amp;#10;        self.opposite_point = opp_point&amp;#10;        self.clicks_x = []&amp;#10;        self.clicks_y = []&amp;#10;        self.clicks_time = []&amp;#10;        &amp;#10;        # flag for whether there are any response&amp;#10;        self.is_valid = True&amp;#10;        self.ever_have_response = False&amp;#10;        &amp;#10;        # initialize only the wheel&amp;#10;        self.wheel.setAutoDraw(True)&amp;#10;        self.point_click_selected.setAutoDraw(False)&amp;#10;        self.opposite_point.setAutoDraw(False)&amp;#10;   &amp;#10;    def register_click(self, mouse_position, mouse_time):&amp;#10;        mouse_x = mouse_position[0]&amp;#10;        mouse_y = mouse_position[1]&amp;#10;        mouse_r = math.sqrt(&amp;#10;            (mouse_x-self.wheel_c[0]) ** 2 +  &amp;#10;            (mouse_y-self.wheel_c[1]) ** 2)&amp;#10;&amp;#10;        click_min_r = self.wheel_r - self.click_radius * CLICK_REGION_FACTOR&amp;#10;        click_max_r = self.wheel_r + self.click_radius * CLICK_REGION_FACTOR&amp;#10;        if mouse_r &gt;= click_min_r and mouse_r &lt;= click_max_r:&amp;#10;            # the click is treated as a valid response&amp;#10;            self.ever_have_response = True&amp;#10;            &amp;#10;            pos_x_scaled = (mouse_x-self.wheel_c[0]) / mouse_r&amp;#10;            pos_y_scaled = (mouse_y-self.wheel_c[1]) / mouse_r&amp;#10;            pos_select_x = self.wheel_c[0] + pos_x_scaled * self.wheel_r&amp;#10;            pos_select_y = self.wheel_c[1] + pos_y_scaled * self.wheel_r&amp;#10;            opp_select_x = self.wheel_c[0] - pos_x_scaled * self.wheel_r&amp;#10;            opp_select_y = self.wheel_c[1] - pos_y_scaled * self.wheel_r&amp;#10;            &amp;#10;            if len(self.clicks_x) == 0:&amp;#10;                # initialize the two points&amp;#10;                self.point_click_selected.autoDraw = True&amp;#10;                self.opposite_point.autoDraw = True&amp;#10;            # update the position of two_points&amp;#10;            self.point_click_selected.setPos(&amp;#10;                (pos_select_x, pos_select_y))&amp;#10;            self.opposite_point.setPos(&amp;#10;                (opp_select_x, opp_select_y))&amp;#10;            # add the selected&amp;#10;            self.clicks_x.append(pos_x_scaled)&amp;#10;            self.clicks_y.append(pos_y_scaled)&amp;#10;            self.clicks_time.append(mouse_time)&amp;#10;            &amp;#10;    def setAutoDraw(self, autoDraw):&amp;#10;        self.wheel.setAutoDraw(autoDraw)&amp;#10;        self.point_click_selected.setAutoDraw(autoDraw)&amp;#10;        self.opposite_point.setAutoDraw(autoDraw)&amp;#10;        &amp;#10;    def compute_response(self):&amp;#10;        # convert response to orientation&amp;#10;        if self.ever_have_response:&amp;#10;            x_resp = self.clicks_x[-1]&amp;#10;            y_resp = self.clicks_y[-1]&amp;#10;            rad = np.arctan2(y_resp, x_resp)&amp;#10;            deg = np.rad2deg(rad)&amp;#10;            deg = deg % 180&amp;#10;            deg = 90 - deg&amp;#10;            deg = deg % 180&amp;#10;            return deg&amp;#10;        else:&amp;#10;            return None&amp;#10;&amp;#10;def createPatch(window, pos, radius, fill_color='white', line_color='black'):&amp;#10;    scaled_border = radius * 10 / 0.2&amp;#10;    patch = visual.Circle(&amp;#10;        window, pos=pos, radius=radius,&amp;#10;        fillColor=fill_color, lineColor=line_color, colorSpace='rgb',&amp;#10;        lineWidth=scaled_border)&amp;#10;    return patch&amp;#10;&amp;#10;def funcDrawAdjustResponse(window, loc, draw_radius, click_radius):&amp;#10;    # set the drawing region&amp;#10;    ## for the wheel&amp;#10;    draw_area_x = loc[0]&amp;#10;    draw_area_y = loc[1]&amp;#10;    draw_area_bottom_y = draw_area_y - draw_radius&amp;#10;    wheel_pos = [&amp;#10;        (loc[0], loc[1]),&amp;#10;        draw_radius, click_radius]&amp;#10;    wheel_color = 'white'&amp;#10;    wheel = createPatch(&amp;#10;        window, pos=(draw_area_x, draw_area_y), radius=draw_radius,&amp;#10;        fill_color='gray', line_color=wheel_color)&amp;#10;&amp;#10;    # initialize the two points&amp;#10;    point_click_selected = createPatch(&amp;#10;        window, pos=(draw_area_x, draw_area_y), radius=click_radius,&amp;#10;        fill_color='black', line_color='black')&amp;#10;    opposite_point = createPatch(&amp;#10;        window, pos=(draw_area_x, draw_area_y), radius=click_radius,&amp;#10;        fill_color='black', line_color='black')&amp;#10;&amp;#10;    # register mouse click function&amp;#10;    response_wheel_obj = WheelClickRegister(&amp;#10;        wheel, pos_point=point_click_selected, &amp;#10;        opp_point=opposite_point, wheel_pos=wheel_pos)&amp;#10;&amp;#10;    return response_wheel_obj&amp;#10;    &amp;#10;&quot;&quot;&quot; create the self-defined buttons &quot;&quot;&quot;&amp;#10;# functions to create buttons&amp;#10;class SelfDefinedButton:&amp;#10;    def __init__(self, window, text, pos, size):&amp;#10;        # load background&amp;#10;        img_path = &quot;resources/button.png&quot;&amp;#10;        self.img = visual.ImageStim(&amp;#10;            win=window, image=img_path,&amp;#10;            size=size, pos=pos)&amp;#10;        &amp;#10;        # load text&amp;#10;        text_height = size[1] / 2&amp;#10;        self.text = visual.TextStim(&amp;#10;            win=window, text=text, pos=pos, color='black',&amp;#10;            height=text_height, anchorHoriz='center', anchorVert='center')&amp;#10;            &amp;#10;        # get stats&amp;#10;        self.left = pos[0] - size[0] / 2&amp;#10;        self.right = pos[0] + size[0] / 2&amp;#10;        self.top = pos[1] + size[1] / 2&amp;#10;        self.bottom = pos[1] - size[1] / 2&amp;#10;        &amp;#10;        # set auto draw&amp;#10;        self.setAutoDraw(True)&amp;#10;        &amp;#10;    def setAutoDraw(self, autoDraw):&amp;#10;        self.img.setAutoDraw(autoDraw)&amp;#10;        self.text.setAutoDraw(autoDraw)&amp;#10;        &amp;#10;    def contains(self, pos):&amp;#10;        px = pos[0]&amp;#10;        py = pos[1]&amp;#10;        on_button = (&amp;#10;            (px &gt; self.left) &amp; (px &lt; self.right) &amp; (&amp;#10;            py &gt; self.bottom) &amp; (py &lt; self.top))&amp;#10;        return on_button&amp;#10;&amp;#10;def funcCreateButton(window, text, pos, size):&amp;#10;    button = SelfDefinedButton(window, text, pos, size)&amp;#10;    return button&amp;#10;    " valType="extendedCode" updates="constant" name="Before Experiment"/>
+        <Param val="" valType="extendedCode" updates="constant" name="Before JS Experiment"/>
+        <Param val="" valType="extendedCode" updates="constant" name="Begin Experiment"/>
+        <Param val="" valType="extendedCode" updates="constant" name="Begin JS Experiment"/>
+        <Param val="" valType="extendedCode" updates="constant" name="Begin JS Routine"/>
+        <Param val="# show the cursor&amp;#10;win.mouseVisible = True&amp;#10;&amp;#10;objs_display = []&amp;#10;&amp;#10;# response field&amp;#10;loc = [0, 0]&amp;#10;response_obj = funcDrawAdjustResponse(&amp;#10;    win, loc, PATCH_RADIUS, CLICK_RADIUS)&amp;#10;objs_display.append(response_obj)&amp;#10;&amp;#10;# to add the confirm button&amp;#10;continue_button = funcCreateButton(&amp;#10;    win, 'continue', pos=(0, -0.35),&amp;#10;    size=(button_width*1.3, button_height*1.3))&amp;#10;objs_display.append(continue_button)&amp;#10;&amp;#10;# to detect whether a pressed has released&amp;#10;has_released = True" valType="extendedCode" updates="constant" name="Begin Routine"/>
+        <Param val="Py" valType="str" updates="None" name="Code Type"/>
+        <Param val="# read mouse click&amp;#10;left_button = responseMouse.getPressed()[0]&amp;#10;mouse_position = responseMouse.getPos()&amp;#10;mouse_time = t&amp;#10;if left_button:&amp;#10;    if continue_button.contains(mouse_position):&amp;#10;        # first check if it's over the continue button&amp;#10;        no_pending = response_obj.ever_have_response&amp;#10;        if no_pending:&amp;#10;            continueRoutine = False&amp;#10;    else:&amp;#10;        if has_released:&amp;#10;            # this is a new press, register it&amp;#10;            has_released = False&amp;#10;            # otherwise, ignore it&amp;#10;            response_obj.register_click(mouse_position, mouse_time)&amp;#10;else:&amp;#10;    has_released = True&amp;#10;&amp;#10;if enforce_response_time_limit and (t &gt; MAX_RESP_TIME):&amp;#10;    continueRoutine = False" valType="extendedCode" updates="constant" name="Each Frame"/>
+        <Param val="" valType="extendedCode" updates="constant" name="Each JS Frame"/>
+        <Param val="" valType="extendedCode" updates="constant" name="End Experiment"/>
+        <Param val="" valType="extendedCode" updates="constant" name="End JS Experiment"/>
+        <Param val="" valType="extendedCode" updates="constant" name="End JS Routine"/>
+        <Param val="# reset click recording&amp;#10;has_released = True&amp;#10;&amp;#10;# resp_obj = response_objects[resp_obj_id]&amp;#10;resp_x_to_record = response_obj.clicks_x&amp;#10;resp_y_to_record = response_obj.clicks_y&amp;#10;resp_time_to_record = response_obj.clicks_time&amp;#10;            &amp;#10;# approximate the response&amp;#10;# if it's not none, compute the error and add to records&amp;#10;resp_approximated = response_obj.compute_response()&amp;#10;if resp_approximated is not None:&amp;#10;    error_approximated = funcComputeOriDiff(resp_approximated, stim_deg)&amp;#10;    block_error_records.append(error_approximated)&amp;#10;else:&amp;#10;    # record those no response&amp;#10;    block_error_records.append(None)&amp;#10; &amp;#10;thisExp.addData(f'resp_x', resp_x_to_record)&amp;#10;thisExp.addData(f'resp_y', resp_y_to_record)&amp;#10;thisExp.addData(f'resp_time', resp_time_to_record)&amp;#10;&amp;#10;# clear all objects&amp;#10;for i in range(len(objs_display)):&amp;#10;    display_obj = objs_display[i]&amp;#10;    display_obj.setAutoDraw(False)&amp;#10;&amp;#10;objs_display = []&amp;#10;response_obj = None&amp;#10;&amp;#10;# hide the cursor&amp;#10;win.mouseVisible = False" valType="extendedCode" updates="constant" name="End Routine"/>
+        <Param val="False" valType="bool" updates="None" name="disabled"/>
+        <Param val="codeOriTest" valType="code" updates="None" name="name"/>
+      </CodeComponent>
+      <MouseComponent name="responseMouse" plugin="None">
+        <Param val="" valType="list" updates="constant" name="clickable"/>
+        <Param val="" valType="list" updates="constant" name="correctAns"/>
+        <Param val="False" valType="bool" updates="None" name="disabled"/>
+        <Param val="" valType="code" updates="None" name="durationEstim"/>
+        <Param val="never" valType="str" updates="constant" name="forceEndRoutineOnPress"/>
+        <Param val="responseMouse" valType="code" updates="None" name="name"/>
+        <Param val="True" valType="bool" updates="constant" name="newClicksOnly"/>
+        <Param val="never" valType="str" updates="None" name="saveMouseState"/>
+        <Param val="" valType="list" updates="constant" name="saveParamsClickable"/>
+        <Param val="False" valType="bool" updates="None" name="saveStartStop"/>
+        <Param val="" valType="code" updates="None" name="startEstim"/>
+        <Param val="time (s)" valType="str" updates="None" name="startType"/>
+        <Param val="0.0" valType="code" updates="None" name="startVal"/>
+        <Param val="duration (s)" valType="str" updates="None" name="stopType"/>
+        <Param val="" valType="code" updates="constant" name="stopVal"/>
+        <Param val="False" valType="bool" updates="constant" name="storeCorrect"/>
+        <Param val="False" valType="bool" updates="None" name="syncScreenRefresh"/>
+        <Param val="mouse onset" valType="str" updates="constant" name="timeRelativeTo"/>
+      </MouseComponent>
     </Routine>
     <Routine name="PreTrial">
       <RoutineSettingsComponent name="PreTrial" plugin="None">
@@ -408,14 +445,14 @@
         <Param val="" valType="extendedCode" updates="constant" name="Begin Experiment"/>
         <Param val="" valType="extendedCode" updates="constant" name="Begin JS Experiment"/>
         <Param val="cur_block_stim_perturbs = all_repats_stims[blockLoop.thisN];&amp;#10;" valType="extendedCode" updates="constant" name="Begin JS Routine"/>
-        <Param val="block_id = blockLoop.thisN&amp;#10;cur_block_stim_perturbs = all_repeats_stims[blockLoop.thisN]&amp;#10;cur_block_perturb_type = all_perturb_types[blockLoop.thisN]" valType="extendedCode" updates="constant" name="Begin Routine"/>
+        <Param val="block_id = blockLoop.thisN&amp;#10;cur_block_stim_perturbs = all_repeats_stims[blockLoop.thisN]&amp;#10;cur_block_perturb_type = all_perturb_types[blockLoop.thisN]&amp;#10;&amp;#10;# prepare data recording&amp;#10;block_error_records = []&amp;#10;block_perturb_acc_records = []" valType="extendedCode" updates="constant" name="Begin Routine"/>
         <Param val="Py" valType="str" updates="None" name="Code Type"/>
         <Param val="" valType="extendedCode" updates="constant" name="Each Frame"/>
         <Param val="" valType="extendedCode" updates="constant" name="Each JS Frame"/>
         <Param val="" valType="extendedCode" updates="constant" name="End Experiment"/>
         <Param val="" valType="extendedCode" updates="constant" name="End JS Experiment"/>
         <Param val="" valType="extendedCode" updates="constant" name="End JS Routine"/>
-        <Param val="" valType="extendedCode" updates="constant" name="End Routine"/>
+        <Param val="# hide the cursor&amp;#10;win.mouseVisible = False" valType="extendedCode" updates="constant" name="End Routine"/>
         <Param val="False" valType="bool" updates="None" name="disabled"/>
         <Param val="codePreBlock" valType="code" updates="None" name="name"/>
       </CodeComponent>
@@ -545,6 +582,104 @@
         <Param val="" valType="num" updates="constant" name="wrapWidth"/>
       </TextComponent>
     </Routine>
+    <Routine name="postBlock">
+      <RoutineSettingsComponent name="postBlock" plugin="None">
+        <Param val="none" valType="str" updates="None" name="backgroundFit"/>
+        <Param val="" valType="str" updates="None" name="backgroundImg"/>
+        <Param val="$[0,0,0]" valType="color" updates="None" name="color"/>
+        <Param val="rgb" valType="str" updates="None" name="colorSpace"/>
+        <Param val="" valType="str" updates="constant" name="desc"/>
+        <Param val="False" valType="bool" updates="None" name="disabled"/>
+        <Param val="" valType="code" updates="None" name="durationEstim"/>
+        <Param val="False" valType="code" updates="None" name="forceNonSlip"/>
+        <Param val="postBlock" valType="code" updates="None" name="name"/>
+        <Param val="True" valType="bool" updates="None" name="saveStartStop"/>
+        <Param val="" valType="code" updates="constant" name="skipIf"/>
+        <Param val="duration (s)" valType="str" updates="None" name="stopType"/>
+        <Param val="" valType="code" updates="constant" name="stopVal"/>
+        <Param val="False" valType="bool" updates="None" name="useWindowParams"/>
+      </RoutineSettingsComponent>
+      <CodeComponent name="codePostBlock" plugin="None">
+        <Param val="" valType="extendedCode" updates="constant" name="Before Experiment"/>
+        <Param val="" valType="extendedCode" updates="constant" name="Before JS Experiment"/>
+        <Param val="" valType="extendedCode" updates="constant" name="Begin Experiment"/>
+        <Param val="" valType="extendedCode" updates="constant" name="Begin JS Experiment"/>
+        <Param val="block_avg_acc = (1 - (np.mean(block_error_records) / 180));&amp;#10;block_avg_perturb_acc = np.mean(block_perturb_acc_records);&amp;#10;" valType="extendedCode" updates="constant" name="Begin JS Routine"/>
+        <Param val="# show the cursor&amp;#10;win.mouseVisible = True&amp;#10;&amp;#10;# compute metrics&amp;#10;block_avg_acc = 1 - np.mean(block_error_records) / 180&amp;#10;block_avg_acc_str = f&quot;{int(block_avg_acc*100)}%&quot;&amp;#10;block_avg_perturb_acc = np.mean(block_perturb_acc_records)&amp;#10;block_avg_perturb_acc_str = f&quot;{int(block_avg_perturb_acc*100)}%&quot;&amp;#10;" valType="extendedCode" updates="constant" name="Begin Routine"/>
+        <Param val="Py" valType="str" updates="None" name="Code Type"/>
+        <Param val="" valType="extendedCode" updates="constant" name="Each Frame"/>
+        <Param val="" valType="extendedCode" updates="constant" name="Each JS Frame"/>
+        <Param val="" valType="extendedCode" updates="constant" name="End Experiment"/>
+        <Param val="" valType="extendedCode" updates="constant" name="End JS Experiment"/>
+        <Param val="" valType="extendedCode" updates="constant" name="End JS Routine"/>
+        <Param val="" valType="extendedCode" updates="constant" name="End Routine"/>
+        <Param val="False" valType="bool" updates="None" name="disabled"/>
+        <Param val="codePostBlock" valType="code" updates="None" name="name"/>
+      </CodeComponent>
+      <TextComponent name="textPostBlock" plugin="None">
+        <Param val="white" valType="color" updates="constant" name="color"/>
+        <Param val="rgb" valType="str" updates="constant" name="colorSpace"/>
+        <Param val="1" valType="num" updates="constant" name="contrast"/>
+        <Param val="False" valType="bool" updates="None" name="disabled"/>
+        <Param val="False" valType="code" updates="constant" name="draggable"/>
+        <Param val="" valType="code" updates="None" name="durationEstim"/>
+        <Param val="None" valType="str" updates="constant" name="flip"/>
+        <Param val="Arial" valType="str" updates="constant" name="font"/>
+        <Param val="LTR" valType="str" updates="None" name="languageStyle"/>
+        <Param val="0.05" valType="num" updates="constant" name="letterHeight"/>
+        <Param val="textPostBlock" valType="code" updates="None" name="name"/>
+        <Param val="" valType="num" updates="constant" name="opacity"/>
+        <Param val="0" valType="num" updates="constant" name="ori"/>
+        <Param val="(0, 0)" valType="list" updates="constant" name="pos"/>
+        <Param val="True" valType="bool" updates="None" name="saveStartStop"/>
+        <Param val="" valType="code" updates="None" name="startEstim"/>
+        <Param val="time (s)" valType="str" updates="None" name="startType"/>
+        <Param val="0.0" valType="code" updates="None" name="startVal"/>
+        <Param val="duration (s)" valType="str" updates="None" name="stopType"/>
+        <Param val="" valType="code" updates="constant" name="stopVal"/>
+        <Param val="True" valType="bool" updates="None" name="syncScreenRefresh"/>
+        <Param val="$&quot;Your get orientation &quot;+ block_avg_acc_str + &quot; correct\n(with &quot; +block_avg_perturb_acc_str + &quot; number of rings judgement correct)&quot;" valType="str" updates="set every repeat" name="text"/>
+        <Param val="from exp settings" valType="str" updates="None" name="units"/>
+        <Param val="" valType="code" updates="None" name="validator"/>
+        <Param val="" valType="num" updates="constant" name="wrapWidth"/>
+      </TextComponent>
+      <ButtonComponent name="buttonPostBlock" plugin="None">
+        <Param val="center" valType="str" updates="constant" name="anchor"/>
+        <Param val="False" valType="bool" updates="constant" name="bold"/>
+        <Param val="None" valType="color" updates="constant" name="borderColor"/>
+        <Param val="0" valType="num" updates="constant" name="borderWidth"/>
+        <Param val="" valType="extendedCode" updates="constant" name="callback"/>
+        <Param val="white" valType="color" updates="constant" name="color"/>
+        <Param val="rgb" valType="str" updates="constant" name="colorSpace"/>
+        <Param val="1" valType="num" updates="constant" name="contrast"/>
+        <Param val="False" valType="bool" updates="None" name="disabled"/>
+        <Param val="" valType="code" updates="None" name="durationEstim"/>
+        <Param val="darkgrey" valType="color" updates="constant" name="fillColor"/>
+        <Param val="Arvo" valType="str" updates="constant" name="font"/>
+        <Param val="True" valType="bool" updates="constant" name="forceEndRoutine"/>
+        <Param val="False" valType="bool" updates="constant" name="italic"/>
+        <Param val="0.03" valType="num" updates="constant" name="letterHeight"/>
+        <Param val="buttonPostBlock" valType="code" updates="None" name="name"/>
+        <Param val="True" valType="bool" updates="constant" name="oncePerClick"/>
+        <Param val="" valType="num" updates="constant" name="opacity"/>
+        <Param val="0" valType="num" updates="constant" name="ori"/>
+        <Param val="" valType="num" updates="constant" name="padding"/>
+        <Param val="(0.0, -0.35)" valType="list" updates="constant" name="pos"/>
+        <Param val="every click" valType="str" updates="None" name="save"/>
+        <Param val="True" valType="bool" updates="None" name="saveStartStop"/>
+        <Param val="(0.25, 0.08)" valType="list" updates="constant" name="size"/>
+        <Param val="" valType="code" updates="None" name="startEstim"/>
+        <Param val="time (s)" valType="str" updates="None" name="startType"/>
+        <Param val="0" valType="code" updates="None" name="startVal"/>
+        <Param val="duration (s)" valType="str" updates="None" name="stopType"/>
+        <Param val="" valType="code" updates="constant" name="stopVal"/>
+        <Param val="True" valType="bool" updates="None" name="syncScreenRefresh"/>
+        <Param val="continue" valType="str" updates="constant" name="text"/>
+        <Param val="button onset" valType="str" updates="constant" name="timeRelativeTo"/>
+        <Param val="from exp settings" valType="str" updates="None" name="units"/>
+        <Param val="" valType="code" updates="None" name="validator"/>
+      </ButtonComponent>
+    </Routine>
   </Routines>
   <Flow>
     <Routine name="prepareExp"/>
@@ -578,6 +713,7 @@
     <Routine name="OriTest"/>
     <Routine name="postTrial"/>
     <LoopTerminator name="trialLoop"/>
+    <Routine name="postBlock"/>
     <LoopTerminator name="blockLoop"/>
   </Flow>
 </PsychoPy2experiment>

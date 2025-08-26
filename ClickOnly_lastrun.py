@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 This experiment was created using PsychoPy3 Experiment Builder (v2025.1.1),
-    on Mon Aug 25 17:35:41 2025
+    on Mon Aug 25 19:08:46 2025
 If you publish work using this script the most relevant publication is:
 
     Peirce J, Gray JR, Simpson S, MacAskill M, Höchenberger R, Sogo H, Kastman E, Lindeløv JK. (2019) 
@@ -38,6 +38,7 @@ from psychopy.hardware import keyboard
 import random
 import numpy as np
 import itertools
+import math
 
 """ For sampling """
 class SimplePerturbationLoader:
@@ -471,6 +472,171 @@ class PerturbSchedueler:
         return feedback
                 
          
+# Run 'Before Experiment' code from codeOriTest
+# define the function to make report
+# define the function to process mouse response
+CLICK_RADIUS = 0.01
+CLICK_REGION_FACTOR = 3
+button_width = 0.1
+button_height = 0.05
+
+def funcComputeOriDiff(s1, s2):
+    diff = np.abs(s1 - s2) 
+    diff = np.min([diff, 180-diff])
+    return diff
+
+class WheelClickRegister:
+    def __init__(self, wheel, pos_point, opp_point, wheel_pos):
+        self.wheel = wheel
+        self.wheel_c = wheel_pos[0]
+        self.wheel_r = wheel_pos[1]
+        self.click_radius = wheel_pos[2]
+        self.point_click_selected = pos_point
+        self.opposite_point = opp_point
+        self.clicks_x = []
+        self.clicks_y = []
+        self.clicks_time = []
+        
+        # flag for whether there are any response
+        self.is_valid = True
+        self.ever_have_response = False
+        
+        # initialize only the wheel
+        self.wheel.setAutoDraw(True)
+        self.point_click_selected.setAutoDraw(False)
+        self.opposite_point.setAutoDraw(False)
+   
+    def register_click(self, mouse_position, mouse_time):
+        mouse_x = mouse_position[0]
+        mouse_y = mouse_position[1]
+        mouse_r = math.sqrt(
+            (mouse_x-self.wheel_c[0]) ** 2 +  
+            (mouse_y-self.wheel_c[1]) ** 2)
+
+        click_min_r = self.wheel_r - self.click_radius * CLICK_REGION_FACTOR
+        click_max_r = self.wheel_r + self.click_radius * CLICK_REGION_FACTOR
+        if mouse_r >= click_min_r and mouse_r <= click_max_r:
+            # the click is treated as a valid response
+            self.ever_have_response = True
+            
+            pos_x_scaled = (mouse_x-self.wheel_c[0]) / mouse_r
+            pos_y_scaled = (mouse_y-self.wheel_c[1]) / mouse_r
+            pos_select_x = self.wheel_c[0] + pos_x_scaled * self.wheel_r
+            pos_select_y = self.wheel_c[1] + pos_y_scaled * self.wheel_r
+            opp_select_x = self.wheel_c[0] - pos_x_scaled * self.wheel_r
+            opp_select_y = self.wheel_c[1] - pos_y_scaled * self.wheel_r
+            
+            if len(self.clicks_x) == 0:
+                # initialize the two points
+                self.point_click_selected.autoDraw = True
+                self.opposite_point.autoDraw = True
+            # update the position of two_points
+            self.point_click_selected.setPos(
+                (pos_select_x, pos_select_y))
+            self.opposite_point.setPos(
+                (opp_select_x, opp_select_y))
+            # add the selected
+            self.clicks_x.append(pos_x_scaled)
+            self.clicks_y.append(pos_y_scaled)
+            self.clicks_time.append(mouse_time)
+            
+    def setAutoDraw(self, autoDraw):
+        self.wheel.setAutoDraw(autoDraw)
+        self.point_click_selected.setAutoDraw(autoDraw)
+        self.opposite_point.setAutoDraw(autoDraw)
+        
+    def compute_response(self):
+        # convert response to orientation
+        if self.ever_have_response:
+            x_resp = self.clicks_x[-1]
+            y_resp = self.clicks_y[-1]
+            rad = np.arctan2(y_resp, x_resp)
+            deg = np.rad2deg(rad)
+            deg = deg % 180
+            deg = 90 - deg
+            deg = deg % 180
+            return deg
+        else:
+            return None
+
+def createPatch(window, pos, radius, fill_color='white', line_color='black'):
+    scaled_border = radius * 10 / 0.2
+    patch = visual.Circle(
+        window, pos=pos, radius=radius,
+        fillColor=fill_color, lineColor=line_color, colorSpace='rgb',
+        lineWidth=scaled_border)
+    return patch
+
+def funcDrawAdjustResponse(window, loc, draw_radius, click_radius):
+    # set the drawing region
+    ## for the wheel
+    draw_area_x = loc[0]
+    draw_area_y = loc[1]
+    draw_area_bottom_y = draw_area_y - draw_radius
+    wheel_pos = [
+        (loc[0], loc[1]),
+        draw_radius, click_radius]
+    wheel_color = 'white'
+    wheel = createPatch(
+        window, pos=(draw_area_x, draw_area_y), radius=draw_radius,
+        fill_color='gray', line_color=wheel_color)
+
+    # initialize the two points
+    point_click_selected = createPatch(
+        window, pos=(draw_area_x, draw_area_y), radius=click_radius,
+        fill_color='black', line_color='black')
+    opposite_point = createPatch(
+        window, pos=(draw_area_x, draw_area_y), radius=click_radius,
+        fill_color='black', line_color='black')
+
+    # register mouse click function
+    response_wheel_obj = WheelClickRegister(
+        wheel, pos_point=point_click_selected, 
+        opp_point=opposite_point, wheel_pos=wheel_pos)
+
+    return response_wheel_obj
+    
+""" create the self-defined buttons """
+# functions to create buttons
+class SelfDefinedButton:
+    def __init__(self, window, text, pos, size):
+        # load background
+        img_path = "resources/button.png"
+        self.img = visual.ImageStim(
+            win=window, image=img_path,
+            size=size, pos=pos)
+        
+        # load text
+        text_height = size[1] / 2
+        self.text = visual.TextStim(
+            win=window, text=text, pos=pos, color='black',
+            height=text_height, anchorHoriz='center', anchorVert='center')
+            
+        # get stats
+        self.left = pos[0] - size[0] / 2
+        self.right = pos[0] + size[0] / 2
+        self.top = pos[1] + size[1] / 2
+        self.bottom = pos[1] - size[1] / 2
+        
+        # set auto draw
+        self.setAutoDraw(True)
+        
+    def setAutoDraw(self, autoDraw):
+        self.img.setAutoDraw(autoDraw)
+        self.text.setAutoDraw(autoDraw)
+        
+    def contains(self, pos):
+        px = pos[0]
+        py = pos[1]
+        on_button = (
+            (px > self.left) & (px < self.right) & (
+            py > self.bottom) & (py < self.top))
+        return on_button
+
+def funcCreateButton(window, text, pos, size):
+    button = SelfDefinedButton(window, text, pos, size)
+    return button
+    
 # --- Setup global variables (available in all functions) ---
 # create a device manager to handle hardware (keyboards, mice, mirophones, speakers, etc.)
 deviceManager = hardware.DeviceManager()
@@ -832,6 +998,8 @@ def run(expInfo, thisExp, win, globalClock=None, thisSession=None):
     STIM_LENGTH = 0.75
     MASK_LENGTH = 0.5
     DELAY_LENGTH = 5
+    enforce_response_time_limit = True
+    MAX_RESP_TIME = 20
     
     # read exp settings
     dominant_hand = expInfo['dominant_hand']
@@ -959,8 +1127,37 @@ def run(expInfo, thisExp, win, globalClock=None, thisSession=None):
     )
     
     # --- Initialize components for Routine "OriTest" ---
+    responseMouse = event.Mouse(win=win)
+    x, y = [None, None]
+    responseMouse.mouseClock = core.Clock()
     
     # --- Initialize components for Routine "postTrial" ---
+    
+    # --- Initialize components for Routine "postBlock" ---
+    textPostBlock = visual.TextStim(win=win, name='textPostBlock',
+        text='',
+        font='Arial',
+        pos=(0, 0), draggable=False, height=0.05, wrapWidth=None, ori=0.0, 
+        color='white', colorSpace='rgb', opacity=None, 
+        languageStyle='LTR',
+        depth=-1.0);
+    buttonPostBlock = visual.ButtonStim(win, 
+        text='continue', font='Arvo',
+        pos=(0.0, -0.35),
+        letterHeight=0.03,
+        size=(0.25, 0.08), 
+        ori=0.0
+        ,borderWidth=0.0,
+        fillColor='darkgrey', borderColor=None,
+        color='white', colorSpace='rgb',
+        opacity=None,
+        bold=False, italic=False,
+        padding=None,
+        anchor='center',
+        name='buttonPostBlock',
+        depth=-2
+    )
+    buttonPostBlock.buttonClock = core.Clock()
     
     # create some handy timers
     
@@ -1139,6 +1336,10 @@ def run(expInfo, thisExp, win, globalClock=None, thisSession=None):
         block_id = blockLoop.thisN
         cur_block_stim_perturbs = all_repeats_stims[blockLoop.thisN]
         cur_block_perturb_type = all_perturb_types[blockLoop.thisN]
+        
+        # prepare data recording
+        block_error_records = []
+        block_perturb_acc_records = []
         textPreBlock.setText("Starting Block " + str(block_id+1))
         # reset buttonPreBlock to account for continued clicks & clear times on/off
         buttonPreBlock.reset()
@@ -1271,6 +1472,9 @@ def run(expInfo, thisExp, win, globalClock=None, thisSession=None):
         PreBlock.tStop = globalClock.getTime(format='float')
         PreBlock.tStopRefresh = tThisFlipGlobal
         thisExp.addData('PreBlock.stopped', PreBlock.tStop)
+        # Run 'End Routine' code from codePreBlock
+        # hide the cursor
+        win.mouseVisible = False
         blockLoop.addData('buttonPreBlock.numClicks', buttonPreBlock.numClicks)
         if buttonPreBlock.numClicks:
            blockLoop.addData('buttonPreBlock.timesOn', buttonPreBlock.timesOn)
@@ -1880,6 +2084,10 @@ def run(expInfo, thisExp, win, globalClock=None, thisSession=None):
                     for k,v in record.items():
                         thisExp.addData(f"{record_type}_{i}_{k}", v)
             
+            # also compute the accuracy
+            perturb_acc = np.mean(
+                [s.get('ans_correct', False) for s in perturb_scheduler.records['judge']])
+            block_perturb_acc_records.append(perturb_acc)
             # the Routine "Delay" was not non-slip safe, so reset the non-slip timer
             routineTimer.reset()
             
@@ -1887,11 +2095,33 @@ def run(expInfo, thisExp, win, globalClock=None, thisSession=None):
             # create an object to store info about Routine OriTest
             OriTest = data.Routine(
                 name='OriTest',
-                components=[],
+                components=[responseMouse],
             )
             OriTest.status = NOT_STARTED
             continueRoutine = True
             # update component parameters for each repeat
+            # Run 'Begin Routine' code from codeOriTest
+            # show the cursor
+            win.mouseVisible = True
+            
+            objs_display = []
+            
+            # response field
+            loc = [0, 0]
+            response_obj = funcDrawAdjustResponse(
+                win, loc, PATCH_RADIUS, CLICK_RADIUS)
+            objs_display.append(response_obj)
+            
+            # to add the confirm button
+            continue_button = funcCreateButton(
+                win, 'continue', pos=(0, -0.35),
+                size=(button_width*1.3, button_height*1.3))
+            objs_display.append(continue_button)
+            
+            # to detect whether a pressed has released
+            has_released = True
+            # setup some python lists for storing info about the responseMouse
+            gotValidClick = False  # until a click is received
             # store start times for OriTest
             OriTest.tStartRefresh = win.getFutureFlipTime(clock=globalClock)
             OriTest.tStart = globalClock.getTime(format='float')
@@ -1924,6 +2154,41 @@ def run(expInfo, thisExp, win, globalClock=None, thisSession=None):
                 tThisFlipGlobal = win.getFutureFlipTime(clock=None)
                 frameN = frameN + 1  # number of completed frames (so 0 is the first frame)
                 # update/draw components on each frame
+                # Run 'Each Frame' code from codeOriTest
+                # read mouse click
+                left_button = responseMouse.getPressed()[0]
+                mouse_position = responseMouse.getPos()
+                mouse_time = t
+                if left_button:
+                    if continue_button.contains(mouse_position):
+                        # first check if it's over the continue button
+                        no_pending = response_obj.ever_have_response
+                        if no_pending:
+                            continueRoutine = False
+                    else:
+                        if has_released:
+                            # this is a new press, register it
+                            has_released = False
+                            # otherwise, ignore it
+                            response_obj.register_click(mouse_position, mouse_time)
+                else:
+                    has_released = True
+                
+                if enforce_response_time_limit and (t > MAX_RESP_TIME):
+                    continueRoutine = False
+                # *responseMouse* updates
+                
+                # if responseMouse is starting this frame...
+                if responseMouse.status == NOT_STARTED and t >= 0.0-frameTolerance:
+                    # keep track of start time/frame for later
+                    responseMouse.frameNStart = frameN  # exact frame index
+                    responseMouse.tStart = t  # local t and not account for scr refresh
+                    responseMouse.tStartRefresh = tThisFlipGlobal  # on global time
+                    win.timeOnFlip(responseMouse, 'tStartRefresh')  # time at next scr refresh
+                    # update status
+                    responseMouse.status = STARTED
+                    responseMouse.mouseClock.reset()
+                    prevButtonState = responseMouse.getPressed()  # if button is down already this ISN'T a new click
                 
                 # check for quit (typically the Esc key)
                 if defaultKeyboard.getKeys(keyList=["escape"]):
@@ -1964,6 +2229,40 @@ def run(expInfo, thisExp, win, globalClock=None, thisSession=None):
             OriTest.tStop = globalClock.getTime(format='float')
             OriTest.tStopRefresh = tThisFlipGlobal
             thisExp.addData('OriTest.stopped', OriTest.tStop)
+            # Run 'End Routine' code from codeOriTest
+            # reset click recording
+            has_released = True
+            
+            # resp_obj = response_objects[resp_obj_id]
+            resp_x_to_record = response_obj.clicks_x
+            resp_y_to_record = response_obj.clicks_y
+            resp_time_to_record = response_obj.clicks_time
+                        
+            # approximate the response
+            # if it's not none, compute the error and add to records
+            resp_approximated = response_obj.compute_response()
+            if resp_approximated is not None:
+                error_approximated = funcComputeOriDiff(resp_approximated, stim_deg)
+                block_error_records.append(error_approximated)
+            else:
+                # record those no response
+                block_error_records.append(None)
+             
+            thisExp.addData(f'resp_x', resp_x_to_record)
+            thisExp.addData(f'resp_y', resp_y_to_record)
+            thisExp.addData(f'resp_time', resp_time_to_record)
+            
+            # clear all objects
+            for i in range(len(objs_display)):
+                display_obj = objs_display[i]
+                display_obj.setAutoDraw(False)
+            
+            objs_display = []
+            response_obj = None
+            
+            # hide the cursor
+            win.mouseVisible = False
+            # store data for trialLoop (TrialHandler)
             # the Routine "OriTest" was not non-slip safe, so reset the non-slip timer
             routineTimer.reset()
             
@@ -2071,6 +2370,167 @@ def run(expInfo, thisExp, win, globalClock=None, thisSession=None):
         if thisSession is not None:
             # if running in a Session with a Liaison client, send data up to now
             thisSession.sendExperimentData()
+        
+        # --- Prepare to start Routine "postBlock" ---
+        # create an object to store info about Routine postBlock
+        postBlock = data.Routine(
+            name='postBlock',
+            components=[textPostBlock, buttonPostBlock],
+        )
+        postBlock.status = NOT_STARTED
+        continueRoutine = True
+        # update component parameters for each repeat
+        # Run 'Begin Routine' code from codePostBlock
+        # show the cursor
+        win.mouseVisible = True
+        
+        # compute metrics
+        block_avg_acc = 1 - np.mean(block_error_records) / 180
+        block_avg_acc_str = f"{int(block_avg_acc*100)}%"
+        block_avg_perturb_acc = np.mean(block_perturb_acc_records)
+        block_avg_perturb_acc_str = f"{int(block_avg_perturb_acc*100)}%"
+        
+        textPostBlock.setText("Your get orientation "+ block_avg_acc_str + " correct\n(with " +block_avg_perturb_acc_str + " number of rings judgement correct)")
+        # reset buttonPostBlock to account for continued clicks & clear times on/off
+        buttonPostBlock.reset()
+        # store start times for postBlock
+        postBlock.tStartRefresh = win.getFutureFlipTime(clock=globalClock)
+        postBlock.tStart = globalClock.getTime(format='float')
+        postBlock.status = STARTED
+        thisExp.addData('postBlock.started', postBlock.tStart)
+        postBlock.maxDuration = None
+        # keep track of which components have finished
+        postBlockComponents = postBlock.components
+        for thisComponent in postBlock.components:
+            thisComponent.tStart = None
+            thisComponent.tStop = None
+            thisComponent.tStartRefresh = None
+            thisComponent.tStopRefresh = None
+            if hasattr(thisComponent, 'status'):
+                thisComponent.status = NOT_STARTED
+        # reset timers
+        t = 0
+        _timeToFirstFrame = win.getFutureFlipTime(clock="now")
+        frameN = -1
+        
+        # --- Run Routine "postBlock" ---
+        postBlock.forceEnded = routineForceEnded = not continueRoutine
+        while continueRoutine:
+            # if trial has changed, end Routine now
+            if hasattr(thisBlockLoop, 'status') and thisBlockLoop.status == STOPPING:
+                continueRoutine = False
+            # get current time
+            t = routineTimer.getTime()
+            tThisFlip = win.getFutureFlipTime(clock=routineTimer)
+            tThisFlipGlobal = win.getFutureFlipTime(clock=None)
+            frameN = frameN + 1  # number of completed frames (so 0 is the first frame)
+            # update/draw components on each frame
+            
+            # *textPostBlock* updates
+            
+            # if textPostBlock is starting this frame...
+            if textPostBlock.status == NOT_STARTED and tThisFlip >= 0.0-frameTolerance:
+                # keep track of start time/frame for later
+                textPostBlock.frameNStart = frameN  # exact frame index
+                textPostBlock.tStart = t  # local t and not account for scr refresh
+                textPostBlock.tStartRefresh = tThisFlipGlobal  # on global time
+                win.timeOnFlip(textPostBlock, 'tStartRefresh')  # time at next scr refresh
+                # add timestamp to datafile
+                thisExp.timestampOnFlip(win, 'textPostBlock.started')
+                # update status
+                textPostBlock.status = STARTED
+                textPostBlock.setAutoDraw(True)
+            
+            # if textPostBlock is active this frame...
+            if textPostBlock.status == STARTED:
+                # update params
+                pass
+            # *buttonPostBlock* updates
+            
+            # if buttonPostBlock is starting this frame...
+            if buttonPostBlock.status == NOT_STARTED and tThisFlip >= 0-frameTolerance:
+                # keep track of start time/frame for later
+                buttonPostBlock.frameNStart = frameN  # exact frame index
+                buttonPostBlock.tStart = t  # local t and not account for scr refresh
+                buttonPostBlock.tStartRefresh = tThisFlipGlobal  # on global time
+                win.timeOnFlip(buttonPostBlock, 'tStartRefresh')  # time at next scr refresh
+                # add timestamp to datafile
+                thisExp.timestampOnFlip(win, 'buttonPostBlock.started')
+                # update status
+                buttonPostBlock.status = STARTED
+                win.callOnFlip(buttonPostBlock.buttonClock.reset)
+                buttonPostBlock.setAutoDraw(True)
+            
+            # if buttonPostBlock is active this frame...
+            if buttonPostBlock.status == STARTED:
+                # update params
+                pass
+                # check whether buttonPostBlock has been pressed
+                if buttonPostBlock.isClicked:
+                    if not buttonPostBlock.wasClicked:
+                        # if this is a new click, store time of first click and clicked until
+                        buttonPostBlock.timesOn.append(buttonPostBlock.buttonClock.getTime())
+                        buttonPostBlock.timesOff.append(buttonPostBlock.buttonClock.getTime())
+                    elif len(buttonPostBlock.timesOff):
+                        # if click is continuing from last frame, update time of clicked until
+                        buttonPostBlock.timesOff[-1] = buttonPostBlock.buttonClock.getTime()
+                    if not buttonPostBlock.wasClicked:
+                        # end routine when buttonPostBlock is clicked
+                        continueRoutine = False
+                    if not buttonPostBlock.wasClicked:
+                        # run callback code when buttonPostBlock is clicked
+                        pass
+            # take note of whether buttonPostBlock was clicked, so that next frame we know if clicks are new
+            buttonPostBlock.wasClicked = buttonPostBlock.isClicked and buttonPostBlock.status == STARTED
+            
+            # check for quit (typically the Esc key)
+            if defaultKeyboard.getKeys(keyList=["escape"]):
+                thisExp.status = FINISHED
+            if thisExp.status == FINISHED or endExpNow:
+                endExperiment(thisExp, win=win)
+                return
+            # pause experiment here if requested
+            if thisExp.status == PAUSED:
+                pauseExperiment(
+                    thisExp=thisExp, 
+                    win=win, 
+                    timers=[routineTimer, globalClock], 
+                    currentRoutine=postBlock,
+                )
+                # skip the frame we paused on
+                continue
+            
+            # check if all components have finished
+            if not continueRoutine:  # a component has requested a forced-end of Routine
+                postBlock.forceEnded = routineForceEnded = True
+                break
+            continueRoutine = False  # will revert to True if at least one component still running
+            for thisComponent in postBlock.components:
+                if hasattr(thisComponent, "status") and thisComponent.status != FINISHED:
+                    continueRoutine = True
+                    break  # at least one component has not yet finished
+            
+            # refresh the screen
+            if continueRoutine:  # don't flip if this routine is over or we'll get a blank screen
+                win.flip()
+        
+        # --- Ending Routine "postBlock" ---
+        for thisComponent in postBlock.components:
+            if hasattr(thisComponent, "setAutoDraw"):
+                thisComponent.setAutoDraw(False)
+        # store stop times for postBlock
+        postBlock.tStop = globalClock.getTime(format='float')
+        postBlock.tStopRefresh = tThisFlipGlobal
+        thisExp.addData('postBlock.stopped', postBlock.tStop)
+        blockLoop.addData('buttonPostBlock.numClicks', buttonPostBlock.numClicks)
+        if buttonPostBlock.numClicks:
+           blockLoop.addData('buttonPostBlock.timesOn', buttonPostBlock.timesOn)
+           blockLoop.addData('buttonPostBlock.timesOff', buttonPostBlock.timesOff)
+        else:
+           blockLoop.addData('buttonPostBlock.timesOn', "")
+           blockLoop.addData('buttonPostBlock.timesOff', "")
+        # the Routine "postBlock" was not non-slip safe, so reset the non-slip timer
+        routineTimer.reset()
         # mark thisBlockLoop as finished
         if hasattr(thisBlockLoop, 'status'):
             thisBlockLoop.status = FINISHED
