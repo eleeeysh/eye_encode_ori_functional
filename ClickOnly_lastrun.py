@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 This experiment was created using PsychoPy3 Experiment Builder (v2025.1.1),
-    on Mon Aug 25 15:00:28 2025
+    on Mon Aug 25 17:35:41 2025
 If you publish work using this script the most relevant publication is:
 
     Peirce J, Gray JR, Simpson S, MacAskill M, Höchenberger R, Sogo H, Kastman E, Lindeløv JK. (2019) 
@@ -85,42 +85,126 @@ class DefaultFixation:
             win=window, vertices='cross',
             size=(0.06, 0.06), lineWidth=1,
             lineColor='white', fillColor='white')
-        
-        self.setAutoDraw(True)
-        
-    def setAutoDraw(self, autoDraw):
-        self.fixation.setAutoDraw(autoDraw)
+
+    def draw(self):
+        self.fixation.draw()
 
 # Run 'Before Experiment' code from codeDisplay
 # define the function to display the stimuli
-def funcDrawStim(window, ori, loc, radius):
-    # ori: 0-180 (degrees)
-    # loc: position of the grating
-    grating = visual.GratingStim(
-        window, tex='sin', mask='gauss', 
-        sf=5.0, size=radius*2, 
-        ori=ori, pos=loc)
-    grating.autoDraw = True
-    return grating
+class StimObj:
+    def __init__(self, window, loc, radius):
+        self.grating = visual.GratingStim(
+            win=window, tex='sin', mask='gauss', 
+            sf=5.0, size=radius*2, 
+            ori=0, pos=loc)
+    
+    def setOri(self, ori):
+        self.grating.setOri(ori)
+        
+    def draw(self):
+        self.grating.draw()
 # Run 'Before Experiment' code from codeAfterMask
 class NoisePatch:
     def __init__(self, window, loc, display_r):
         noise_img_path = "resources/noise.png"
-        noise_ori = 180 * random.random()
         self.obj = visual.ImageStim(
             win=window, image=noise_img_path,
-            ori=noise_ori, size=2*display_r, pos=loc) 
+            ori=0, size=2*display_r, pos=loc) 
         
-        self.setAutoDraw(True)
+    def rotate(self):
+        noise_ori = 180 * random.random()
+        self.obj.setOri(noise_ori)
         
-    def setAutoDraw(self, autoDraw):
-        self.obj.setAutoDraw(autoDraw)
+    def draw(self):
+        self.obj.draw()
 # Run 'Before Experiment' code from codeDelay
 """ For generating perturbations """
+NRINGS_ALLOWED = [3, 4]
+PERTURB_SIZE = 0.05
+
+class MultiRings:
+    """ cocentric rings """
+    def __init__(self, win, nrings, radius):
+        self.radius = radius
+        self.rings = []
+        self.nrings = nrings
+        
+        # create circles
+        for i in range(nrings):
+            ring = visual.Circle(
+                win,
+                radius=0.5,
+                pos=(0, 0),
+                lineColor='white',
+                fillColor=None,
+                lineWidth=1.5
+            )
+            self.rings.append(ring)
+        
+        # set radius
+        self.setRadius(radius)
+        self.setPos([0, 0])
+            
+    def setRadius(self, radius):
+        self.radius = radius
+        ring_spacing = self.radius / (self.nrings)
+        for i, ring in enumerate(self.rings):
+            radius = ring_spacing * (i + 1)
+            ring.setRadius(radius)
+    
+    def setPos(self, pos):
+        self.pos = pos
+        for ring in self.rings:
+            ring.setPos(pos)
+
+    def draw(self):
+        for ring in self.rings:
+            ring.draw()
+            
+class MultiRingManager:
+    """ a bunch of cocentric rings for perturbation"""
+    def __init__(self, win, radius):
+        self.fixed_radius = radius
+        self.ratio_min, self.ratio_max = 0.9, 1.1
+        self.ring_patterns = {}
+        self.nrings = NRINGS_ALLOWED[:]
+        for nring in self.nrings:
+            self.ring_patterns[nring] = MultiRings(
+                win, nring, radius)
+                
+        # set an initial default rings
+        self.resample()
+                
+    def resample(self):
+        sample_n = np.random.choice(self.nrings)
+        sampled = self.ring_patterns[sample_n]
+        self.target_n = sample_n
+        self.target_rings = sampled
+        self.radius = self.target_rings.radius
+        self.pos = self.target_rings.pos
+        return sample_n
+
+    def setRadius(self, new_radius):
+        self.target_rings.setRadius(new_radius)
+        self.radius = new_radius
+        
+    def setPos(self, new_pos):
+        self.target_rings.setPos(new_pos)
+        self.pos = new_pos
+
+    def draw(self):
+        self.target_rings.draw()
+
 class SinglePerturbItemManager:
     def __init__(self, win, item_type):
         self.perturb_scale_range = [0.1, 0.25]
-        self.item_size = 0.05
+        self.scale_ratio_range = [0.9, 1.1]
+        self.item_size = PERTURB_SIZE
+        
+        # other properties
+        self.has_ori = False
+        self.scalable = False
+        self.multi_sample = False
         
         # load resources
         if item_type == 'landolt':
@@ -131,15 +215,25 @@ class SinglePerturbItemManager:
                 ori=0,
                 size=(self.item_size, self.item_size))
         elif item_type == 'circle':
-            self.has_ori = False
             self.img = visual.Circle(
                 win, radius=self.item_size/2,
                 pos=(0, 0),
                 lineColor='white',
                 fillColor='white'
             )
+        elif item_type == 'rings':
+            self.multi_sample = True
+            self.scalable = True
+            self.img = MultiRingManager(win, self.item_size/2)
         else:
             raise NotImplementedError
+            
+    def generate_scaled_radius(self):
+        scale_ratio = np.random.uniform(
+            self.scale_ratio_range[0], 
+            self.scale_ratio_range[1])
+        new_radius = self.item_size / 2 * scale_ratio
+        return new_radius
         
     def generate_perturb_position(self, perturb_code):
         perturb_center = np.random.uniform(
@@ -150,13 +244,24 @@ class SinglePerturbItemManager:
         return perturb_center
         
     def move(self, perturb_code):
+        perturb_info = {}
+        
+        ## change appearance
+        if self.multi_sample:
+            sample_id = self.img.resample()
+            perturb_info['sample_id'] = sample_id
+        
         ## position
         center = self.generate_perturb_position(perturb_code)
-        perturb_info = {
-            'pos': center,
-            'radius': self.item_size/2,
-        }
-        self.img.pos = center
+        perturb_info['pos'] = center
+        perturb_info['radius'] = self.item_size/2
+        self.img.setPos(center)
+        
+        ## scale it (if allowed)
+        if self.scalable:
+            new_radius = self.generate_scaled_radius()
+            self.img.setRadius(new_radius)
+            perturb_info['radius'] = new_radius
         
         ## rotation
         if self.has_ori:
@@ -169,7 +274,8 @@ class SinglePerturbItemManager:
 class PerturbItemManager:
     def __init__(self, win):
         # a few things needed
-        self.landolt = SinglePerturbItemManager(win, 'landolt')
+        self.rings = SinglePerturbItemManager(win, 'rings')
+        # self.landolt = SinglePerturbItemManager(win, 'landolt')
         self.circle = SinglePerturbItemManager(win, 'circle')
         self.center = SinglePerturbItemManager(win, 'circle')
         self.reset()
@@ -183,12 +289,14 @@ class PerturbItemManager:
         self.reset()
         if perturb_code is not None:
             if is_task: # overt movement
-                draw_item, move_info = self.landolt.move(perturb_code)
+                # draw_item, move_info = self.landolt.move(perturb_code)
+                draw_item, move_info = self.rings.move(perturb_code)
             else: # covert movement
                 draw_item, move_info = self.circle.move(perturb_code)
         else:
             if is_task: # judgement at center
-                draw_item, move_info = self.landolt.move([0, 0])
+                # draw_item, move_info = self.landolt.move([0, 0])
+                draw_item, move_info = self.rings.move([0, 0])
             else:
                 draw_item, move_info = self.center.move([0, 0])
         self.active_items = [draw_item,]
@@ -327,17 +435,27 @@ class PerturbSchedueler:
 
         self.perturb_item_manager.draw()
         
+    def check_judge_left_right_correct(self, key_input, key_map):
+        ans_is_left = self.records['judge'][-1]['ori'] > 180
+        ## check the key
+        last_key = key_input[-1].name
+        key_is_left = last_key.lower() == key_map[0]
+        key_is_correct = key_is_left == ans_is_left
+        return key_is_correct
+        
+    def check_judge_key_match(self, key_input):
+        ans = str(self.records['judge'][-1]['sample_id'])
+        ## check the key
+        last_key = key_input[-1].name
+        key_is_correct = last_key.lower() == ans
+        return key_is_correct
 
     def check_input(self, t, key_input, key_map):
         feedback = None
         if self.require_input:
             if key_input: # there is some input...
                 # only care if input is required
-                ans_is_left = self.records['judge'][-1]['ori'] > 180
-                ## check the key
-                last_key = key_input[-1].name
-                key_is_left = last_key.lower() == key_map[0]
-                key_is_correct = key_is_left == ans_is_left
+                key_is_correct = self.check_judge_key_match(key_input)
                 ## update the result
                 self.records['judge'][-1]['ans_correct'] = key_is_correct
                 self.records['judge'][-1]['rt'] = t - self.records['judge'][-1]['tstart']
@@ -710,7 +828,9 @@ def run(expInfo, thisExp, win, globalClock=None, thisSession=None):
     # set configrations
     N_REPEATS = 4
     N_REPEAT_BLOCK = 40 # FOR DEBUGGING, 4 will be decent?
+    FIXATION_LENGTH = 1
     STIM_LENGTH = 0.75
+    MASK_LENGTH = 0.5
     DELAY_LENGTH = 5
     
     # read exp settings
@@ -726,10 +846,45 @@ def run(expInfo, thisExp, win, globalClock=None, thisSession=None):
     
     
     # --- Initialize components for Routine "PreBlock" ---
+    textPreBlock = visual.TextStim(win=win, name='textPreBlock',
+        text='',
+        font='Arial',
+        pos=(0, 0.1), draggable=False, height=0.06, wrapWidth=None, ori=0.0, 
+        color='white', colorSpace='rgb', opacity=None, 
+        languageStyle='LTR',
+        depth=-1.0);
+    buttonPreBlock = visual.ButtonStim(win, 
+        text='continue', font='Arvo',
+        pos=(0.0, -0.35),
+        letterHeight=0.03,
+        size=(0.25, 0.08), 
+        ori=0.0
+        ,borderWidth=0.0,
+        fillColor='darkgrey', borderColor=None,
+        color='white', colorSpace='rgb',
+        opacity=None,
+        bold=False, italic=False,
+        padding=None,
+        anchor='center',
+        name='buttonPreBlock',
+        depth=-2
+    )
+    buttonPreBlock.buttonClock = core.Clock()
     
     # --- Initialize components for Routine "PreTrial" ---
+    # Run 'Begin Experiment' code from codePretrial
+    fixation = DefaultFixation(win)
+    textPreTrialPlaceholder = visual.TextStim(win=win, name='textPreTrialPlaceholder',
+        text=None,
+        font='Arial',
+        pos=(0, 0), draggable=False, height=0.05, wrapWidth=None, ori=0.0, 
+        color='white', colorSpace='rgb', opacity=None, 
+        languageStyle='LTR',
+        depth=-1.0);
     
     # --- Initialize components for Routine "Display" ---
+    # Run 'Begin Experiment' code from codeDisplay
+    stim_obj = StimObj(win, [0, 0], PATCH_RADIUS)
     textDisplayPlaceholder = visual.TextBox2(
          win, text=None, placeholder='Type here...', font='Arial',
          ori=0.0, pos=(0, 0), draggable=False,      letterHeight=0.05,
@@ -748,6 +903,15 @@ def run(expInfo, thisExp, win, globalClock=None, thisSession=None):
     )
     
     # --- Initialize components for Routine "AfterMask" ---
+    # Run 'Begin Experiment' code from codeAfterMask
+    mask_obj = NoisePatch(win, [0, 0], PATCH_RADIUS)
+    textMaskPlaceholder = visual.TextStim(win=win, name='textMaskPlaceholder',
+        text=None,
+        font='Arial',
+        pos=(0, 0), draggable=False, height=0.05, wrapWidth=None, ori=0.0, 
+        color='white', colorSpace='rgb', opacity=None, 
+        languageStyle='LTR',
+        depth=-1.0);
     
     # --- Initialize components for Routine "Delay" ---
     keyDelay = keyboard.Keyboard(deviceName='keyDelay')
@@ -767,10 +931,11 @@ def run(expInfo, thisExp, win, globalClock=None, thisSession=None):
         delay_length=DELAY_LENGTH)
     
     ## left / right hand mapping
-    left_hand_keys = ['j', 'k'] # for left-handed
-    right_hand_keys = ['a', 's'] # for right-handed
-    assert len(left_hand_keys) == len(right_hand_keys)
-    resp_key_map = right_hand_keys if is_right_handed else left_hand_keys
+    # left_hand_keys = ['j', 'k'] # for left-handed
+    # right_hand_keys = ['a', 's'] # for right-handed
+    # assert len(left_hand_keys) == len(right_hand_keys)
+    # resp_key_map = right_hand_keys if is_right_handed else left_hand_keys
+    resp_key_map = [str(i) for i in NRINGS_ALLOWED]
     
     ## load sound feedback
     correct_sound = sound.Sound('bleep.wav')
@@ -965,7 +1130,7 @@ def run(expInfo, thisExp, win, globalClock=None, thisSession=None):
         # create an object to store info about Routine PreBlock
         PreBlock = data.Routine(
             name='PreBlock',
-            components=[],
+            components=[textPreBlock, buttonPreBlock],
         )
         PreBlock.status = NOT_STARTED
         continueRoutine = True
@@ -974,6 +1139,9 @@ def run(expInfo, thisExp, win, globalClock=None, thisSession=None):
         block_id = blockLoop.thisN
         cur_block_stim_perturbs = all_repeats_stims[blockLoop.thisN]
         cur_block_perturb_type = all_perturb_types[blockLoop.thisN]
+        textPreBlock.setText("Starting Block " + str(block_id+1))
+        # reset buttonPreBlock to account for continued clicks & clear times on/off
+        buttonPreBlock.reset()
         # store start times for PreBlock
         PreBlock.tStartRefresh = win.getFutureFlipTime(clock=globalClock)
         PreBlock.tStart = globalClock.getTime(format='float')
@@ -1006,6 +1174,63 @@ def run(expInfo, thisExp, win, globalClock=None, thisSession=None):
             tThisFlipGlobal = win.getFutureFlipTime(clock=None)
             frameN = frameN + 1  # number of completed frames (so 0 is the first frame)
             # update/draw components on each frame
+            
+            # *textPreBlock* updates
+            
+            # if textPreBlock is starting this frame...
+            if textPreBlock.status == NOT_STARTED and tThisFlip >= 0.0-frameTolerance:
+                # keep track of start time/frame for later
+                textPreBlock.frameNStart = frameN  # exact frame index
+                textPreBlock.tStart = t  # local t and not account for scr refresh
+                textPreBlock.tStartRefresh = tThisFlipGlobal  # on global time
+                win.timeOnFlip(textPreBlock, 'tStartRefresh')  # time at next scr refresh
+                # add timestamp to datafile
+                thisExp.timestampOnFlip(win, 'textPreBlock.started')
+                # update status
+                textPreBlock.status = STARTED
+                textPreBlock.setAutoDraw(True)
+            
+            # if textPreBlock is active this frame...
+            if textPreBlock.status == STARTED:
+                # update params
+                pass
+            # *buttonPreBlock* updates
+            
+            # if buttonPreBlock is starting this frame...
+            if buttonPreBlock.status == NOT_STARTED and tThisFlip >= 0-frameTolerance:
+                # keep track of start time/frame for later
+                buttonPreBlock.frameNStart = frameN  # exact frame index
+                buttonPreBlock.tStart = t  # local t and not account for scr refresh
+                buttonPreBlock.tStartRefresh = tThisFlipGlobal  # on global time
+                win.timeOnFlip(buttonPreBlock, 'tStartRefresh')  # time at next scr refresh
+                # add timestamp to datafile
+                thisExp.timestampOnFlip(win, 'buttonPreBlock.started')
+                # update status
+                buttonPreBlock.status = STARTED
+                win.callOnFlip(buttonPreBlock.buttonClock.reset)
+                buttonPreBlock.setAutoDraw(True)
+            
+            # if buttonPreBlock is active this frame...
+            if buttonPreBlock.status == STARTED:
+                # update params
+                pass
+                # check whether buttonPreBlock has been pressed
+                if buttonPreBlock.isClicked:
+                    if not buttonPreBlock.wasClicked:
+                        # if this is a new click, store time of first click and clicked until
+                        buttonPreBlock.timesOn.append(buttonPreBlock.buttonClock.getTime())
+                        buttonPreBlock.timesOff.append(buttonPreBlock.buttonClock.getTime())
+                    elif len(buttonPreBlock.timesOff):
+                        # if click is continuing from last frame, update time of clicked until
+                        buttonPreBlock.timesOff[-1] = buttonPreBlock.buttonClock.getTime()
+                    if not buttonPreBlock.wasClicked:
+                        # end routine when buttonPreBlock is clicked
+                        continueRoutine = False
+                    if not buttonPreBlock.wasClicked:
+                        # run callback code when buttonPreBlock is clicked
+                        pass
+            # take note of whether buttonPreBlock was clicked, so that next frame we know if clicks are new
+            buttonPreBlock.wasClicked = buttonPreBlock.isClicked and buttonPreBlock.status == STARTED
             
             # check for quit (typically the Esc key)
             if defaultKeyboard.getKeys(keyList=["escape"]):
@@ -1046,6 +1271,13 @@ def run(expInfo, thisExp, win, globalClock=None, thisSession=None):
         PreBlock.tStop = globalClock.getTime(format='float')
         PreBlock.tStopRefresh = tThisFlipGlobal
         thisExp.addData('PreBlock.stopped', PreBlock.tStop)
+        blockLoop.addData('buttonPreBlock.numClicks', buttonPreBlock.numClicks)
+        if buttonPreBlock.numClicks:
+           blockLoop.addData('buttonPreBlock.timesOn', buttonPreBlock.timesOn)
+           blockLoop.addData('buttonPreBlock.timesOff', buttonPreBlock.timesOff)
+        else:
+           blockLoop.addData('buttonPreBlock.timesOn', "")
+           blockLoop.addData('buttonPreBlock.timesOff', "")
         # the Routine "PreBlock" was not non-slip safe, so reset the non-slip timer
         routineTimer.reset()
         
@@ -1087,7 +1319,7 @@ def run(expInfo, thisExp, win, globalClock=None, thisSession=None):
             # create an object to store info about Routine PreTrial
             PreTrial = data.Routine(
                 name='PreTrial',
-                components=[],
+                components=[textPreTrialPlaceholder],
             )
             PreTrial.status = NOT_STARTED
             continueRoutine = True
@@ -1095,6 +1327,7 @@ def run(expInfo, thisExp, win, globalClock=None, thisSession=None):
             # Run 'Begin Routine' code from codePretrial
             cur_trial_i = trialLoop.thisN
             cur_trial_stim_perturbs = cur_block_stim_perturbs[cur_trial_i]
+            
             # store start times for PreTrial
             PreTrial.tStartRefresh = win.getFutureFlipTime(clock=globalClock)
             PreTrial.tStart = globalClock.getTime(format='float')
@@ -1127,6 +1360,42 @@ def run(expInfo, thisExp, win, globalClock=None, thisSession=None):
                 tThisFlipGlobal = win.getFutureFlipTime(clock=None)
                 frameN = frameN + 1  # number of completed frames (so 0 is the first frame)
                 # update/draw components on each frame
+                # Run 'Each Frame' code from codePretrial
+                fixation.draw()
+                
+                # *textPreTrialPlaceholder* updates
+                
+                # if textPreTrialPlaceholder is starting this frame...
+                if textPreTrialPlaceholder.status == NOT_STARTED and tThisFlip >= 0.0-frameTolerance:
+                    # keep track of start time/frame for later
+                    textPreTrialPlaceholder.frameNStart = frameN  # exact frame index
+                    textPreTrialPlaceholder.tStart = t  # local t and not account for scr refresh
+                    textPreTrialPlaceholder.tStartRefresh = tThisFlipGlobal  # on global time
+                    win.timeOnFlip(textPreTrialPlaceholder, 'tStartRefresh')  # time at next scr refresh
+                    # add timestamp to datafile
+                    thisExp.timestampOnFlip(win, 'textPreTrialPlaceholder.started')
+                    # update status
+                    textPreTrialPlaceholder.status = STARTED
+                    textPreTrialPlaceholder.setAutoDraw(True)
+                
+                # if textPreTrialPlaceholder is active this frame...
+                if textPreTrialPlaceholder.status == STARTED:
+                    # update params
+                    pass
+                
+                # if textPreTrialPlaceholder is stopping this frame...
+                if textPreTrialPlaceholder.status == STARTED:
+                    # is it time to stop? (based on global clock, using actual start)
+                    if tThisFlipGlobal > textPreTrialPlaceholder.tStartRefresh + FIXATION_LENGTH-frameTolerance:
+                        # keep track of stop time/frame for later
+                        textPreTrialPlaceholder.tStop = t  # not accounting for scr refresh
+                        textPreTrialPlaceholder.tStopRefresh = tThisFlipGlobal  # on global time
+                        textPreTrialPlaceholder.frameNStop = frameN  # exact frame index
+                        # add timestamp to datafile
+                        thisExp.timestampOnFlip(win, 'textPreTrialPlaceholder.stopped')
+                        # update status
+                        textPreTrialPlaceholder.status = FINISHED
+                        textPreTrialPlaceholder.setAutoDraw(False)
                 
                 # check for quit (typically the Esc key)
                 if defaultKeyboard.getKeys(keyList=["escape"]):
@@ -1181,7 +1450,7 @@ def run(expInfo, thisExp, win, globalClock=None, thisSession=None):
             # update component parameters for each repeat
             # Run 'Begin Routine' code from codeDisplay
             stim_deg = cur_block_stim_perturbs[cur_trial_i][0]
-            stim_obj = funcDrawStim(win, stim_deg, [0, 0], PATCH_RADIUS)
+            stim_obj.setOri(stim_deg)
             thisExp.addData('stim', stim_deg)
             
             textDisplayPlaceholder.reset()
@@ -1217,6 +1486,8 @@ def run(expInfo, thisExp, win, globalClock=None, thisSession=None):
                 tThisFlipGlobal = win.getFutureFlipTime(clock=None)
                 frameN = frameN + 1  # number of completed frames (so 0 is the first frame)
                 # update/draw components on each frame
+                # Run 'Each Frame' code from codeDisplay
+                stim_obj.draw()
                 
                 # *textDisplayPlaceholder* updates
                 
@@ -1291,8 +1562,6 @@ def run(expInfo, thisExp, win, globalClock=None, thisSession=None):
             Display.tStop = globalClock.getTime(format='float')
             Display.tStopRefresh = tThisFlipGlobal
             thisExp.addData('Display.stopped', Display.tStop)
-            # Run 'End Routine' code from codeDisplay
-            stim_obj.setAutoDraw(False)
             # the Routine "Display" was not non-slip safe, so reset the non-slip timer
             routineTimer.reset()
             
@@ -1300,11 +1569,13 @@ def run(expInfo, thisExp, win, globalClock=None, thisSession=None):
             # create an object to store info about Routine AfterMask
             AfterMask = data.Routine(
                 name='AfterMask',
-                components=[],
+                components=[textMaskPlaceholder],
             )
             AfterMask.status = NOT_STARTED
             continueRoutine = True
             # update component parameters for each repeat
+            # Run 'Begin Routine' code from codeAfterMask
+            mask_obj.rotate()
             # store start times for AfterMask
             AfterMask.tStartRefresh = win.getFutureFlipTime(clock=globalClock)
             AfterMask.tStart = globalClock.getTime(format='float')
@@ -1337,6 +1608,42 @@ def run(expInfo, thisExp, win, globalClock=None, thisSession=None):
                 tThisFlipGlobal = win.getFutureFlipTime(clock=None)
                 frameN = frameN + 1  # number of completed frames (so 0 is the first frame)
                 # update/draw components on each frame
+                # Run 'Each Frame' code from codeAfterMask
+                mask_obj.draw()
+                
+                # *textMaskPlaceholder* updates
+                
+                # if textMaskPlaceholder is starting this frame...
+                if textMaskPlaceholder.status == NOT_STARTED and tThisFlip >= 0.0-frameTolerance:
+                    # keep track of start time/frame for later
+                    textMaskPlaceholder.frameNStart = frameN  # exact frame index
+                    textMaskPlaceholder.tStart = t  # local t and not account for scr refresh
+                    textMaskPlaceholder.tStartRefresh = tThisFlipGlobal  # on global time
+                    win.timeOnFlip(textMaskPlaceholder, 'tStartRefresh')  # time at next scr refresh
+                    # add timestamp to datafile
+                    thisExp.timestampOnFlip(win, 'textMaskPlaceholder.started')
+                    # update status
+                    textMaskPlaceholder.status = STARTED
+                    textMaskPlaceholder.setAutoDraw(True)
+                
+                # if textMaskPlaceholder is active this frame...
+                if textMaskPlaceholder.status == STARTED:
+                    # update params
+                    pass
+                
+                # if textMaskPlaceholder is stopping this frame...
+                if textMaskPlaceholder.status == STARTED:
+                    # is it time to stop? (based on global clock, using actual start)
+                    if tThisFlipGlobal > textMaskPlaceholder.tStartRefresh + MASK_LENGTH-frameTolerance:
+                        # keep track of stop time/frame for later
+                        textMaskPlaceholder.tStop = t  # not accounting for scr refresh
+                        textMaskPlaceholder.tStopRefresh = tThisFlipGlobal  # on global time
+                        textMaskPlaceholder.frameNStop = frameN  # exact frame index
+                        # add timestamp to datafile
+                        thisExp.timestampOnFlip(win, 'textMaskPlaceholder.stopped')
+                        # update status
+                        textMaskPlaceholder.status = FINISHED
+                        textMaskPlaceholder.setAutoDraw(False)
                 
                 # check for quit (typically the Esc key)
                 if defaultKeyboard.getKeys(keyList=["escape"]):
